@@ -2,15 +2,15 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>ColisTrack — Mes Prochaines Livraisons</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>ColisTrack — Mes Livraisons</title>
   <meta name="description" content="Suivi privé de vos livraisons de colis avec barre de progression." />
 
-  <!-- PWA & Signet / Écran d'accueil -->
+  <!-- PWA & Signet / Écran d'accueil iOS & Android -->
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
   <link rel="apple-touch-icon" href="icon.svg" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#0b1120" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="ColisTrack" />
@@ -18,7 +18,7 @@
   <style>
     :root {
       --bg-main: #0b1120;
-      --bg-card: rgba(30, 41, 59, 0.72);
+      --bg-card: rgba(30, 41, 59, 0.78);
       --border-color: rgba(148, 163, 184, 0.16);
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
@@ -26,42 +26,45 @@
       --accent-indigo: #6366f1;
       --accent-emerald: #10b981;
       --accent-amber: #f59e0b;
-      --radius-lg: 18px;
-      --radius-md: 12px;
-      --shadow-lg: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: radial-gradient(circle at 15% 0%, #1e1b4b 0%, #0b1120 55%, #070b14 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at 20% 0%, #1e1b4b 0%, #0b1120 55%, #070b14 100%);
+      background-attachment: fixed;
       color: var(--text-main);
       min-height: 100vh;
-      line-height: 1.5;
-      padding-bottom: 60px;
+      line-height: 1.4;
+      padding-top: var(--safe-top);
+      padding-bottom: calc(82px + var(--safe-bottom));
+      overflow-x: hidden;
     }
 
     .container {
-      max-width: 1040px;
+      max-width: 680px;
       margin: 0 auto;
-      padding: 24px 18px;
+      padding: 12px 14px;
     }
 
-    /* Écran de verrouillage par Code PIN (Confidentialité totale) */
+    /* Écran de verrouillage PIN (Mobile-first) */
     #lockScreen {
       position: fixed;
       inset: 0;
-      background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #070b14 75%);
+      background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #070b14 80%);
       display: none;
       align-items: center;
       justify-content: center;
       padding: 20px;
-      z-index: 200;
+      z-index: 300;
     }
 
     #lockScreen.active {
@@ -69,245 +72,248 @@
     }
 
     .lock-card {
-      background: rgba(15, 23, 42, 0.92);
+      background: rgba(15, 23, 42, 0.94);
       border: 1px solid rgba(148, 163, 184, 0.22);
       border-radius: 24px;
-      padding: 32px 26px;
-      max-width: 390px;
+      padding: 28px 22px;
+      max-width: 360px;
       width: 100%;
       text-align: center;
-      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.75);
     }
 
     .lock-card img {
-      width: 64px;
-      height: 64px;
-      border-radius: 16px;
-      margin-bottom: 14px;
+      width: 58px;
+      height: 58px;
+      border-radius: 15px;
+      margin-bottom: 12px;
     }
 
+    /* 16px minimum pour éviter le zoom automatique sur iOS Safari */
     .pin-input {
       width: 100%;
       text-align: center;
-      font-size: 1.6rem;
+      font-size: 1.5rem;
       letter-spacing: 0.35em;
       font-weight: 800;
       padding: 12px;
       border-radius: 14px;
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      background: rgba(30, 41, 59, 0.9);
       color: #fff;
-      margin: 18px 0 14px;
+      margin: 16px 0 12px;
       outline: none;
     }
 
-    header {
+    /* Barre supérieure compacte façon application mobile */
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(11, 17, 32, 0.86);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 10px 14px;
+      margin: -12px -14px 14px;
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      padding-bottom: 22px;
-      border-bottom: 1px solid var(--border-color);
-      margin-bottom: 24px;
+      gap: 10px;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
+      min-width: 0;
     }
 
     .brand-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 14px;
-      box-shadow: 0 8px 20px rgba(245, 158, 11, 0.25);
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+    }
+
+    .brand-title {
+      min-width: 0;
     }
 
     .brand-title h1 {
-      font-size: 1.45rem;
-      font-weight: 700;
+      font-size: 1.12rem;
+      font-weight: 800;
       letter-spacing: -0.02em;
+      line-height: 1.15;
     }
 
     .brand-subtitle {
-      font-size: 0.85rem;
+      font-size: 0.72rem;
       color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .header-actions {
+    .header-right {
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
-      gap: 10px;
+      gap: 6px;
+      flex-shrink: 0;
     }
 
     .btn {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 10px 15px;
-      border-radius: var(--radius-md);
-      font-size: 0.88rem;
-      font-weight: 600;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 13px;
+      border-radius: 12px;
+      font-size: 0.84rem;
+      font-weight: 700;
       cursor: pointer;
       border: 1px solid var(--border-color);
-      background: rgba(30, 41, 59, 0.8);
+      background: rgba(30, 41, 59, 0.85);
       color: var(--text-main);
-      transition: all 0.2s ease;
+      transition: transform 0.12s ease, background 0.15s ease;
       text-decoration: none;
+      white-space: nowrap;
     }
 
-    .btn:hover {
-      background: rgba(51, 65, 85, 0.9);
-      transform: translateY(-1px);
+    .btn:active {
+      transform: scale(0.96);
     }
 
     .btn-primary {
       background: linear-gradient(135deg, #0ea5e9, #6366f1);
       border-color: transparent;
       color: #fff;
-      box-shadow: 0 8px 20px -6px rgba(14, 165, 233, 0.55);
+      box-shadow: 0 6px 16px -4px rgba(14, 165, 233, 0.5);
     }
 
-    .btn-amber {
-      background: rgba(245, 158, 11, 0.15);
-      border-color: rgba(245, 158, 11, 0.4);
-      color: #fbbf24;
+    .btn-icon-only {
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border-radius: 11px;
+      font-size: 1rem;
     }
 
-    .summary-grid {
+    /* Résumé ultra-compact sur 1 seule ligne (4 colonnes sur mobile) */
+    .summary-strip {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 14px;
-      margin-bottom: 24px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
     }
 
-    .stat-card {
+    .stat-pill {
       background: var(--bg-card);
-      backdrop-filter: blur(12px);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      padding: 16px 18px;
+      border-radius: 14px;
+      padding: 9px 6px;
+      text-align: center;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-    }
-
-    .stat-label {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      font-weight: 600;
+      align-items: center;
+      justify-content: center;
     }
 
     .stat-value {
-      font-size: 1.75rem;
+      font-size: 1.25rem;
       font-weight: 800;
+      line-height: 1.1;
     }
 
-    .stat-sub {
-      font-size: 0.8rem;
+    .stat-label {
+      font-size: 0.65rem;
       color: var(--text-muted);
-    }
-
-    .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .tabs {
-      display: flex;
-      gap: 6px;
-      background: rgba(15, 23, 42, 0.75);
-      padding: 5px;
-      border-radius: 14px;
-      border: 1px solid var(--border-color);
-      overflow-x: auto;
-    }
-
-    .tab-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      padding: 7px 14px;
-      border-radius: 10px;
-      font-size: 0.85rem;
       font-weight: 600;
-      cursor: pointer;
+      margin-top: 3px;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
     }
 
-    .tab-btn.active {
-      background: rgba(56, 189, 248, 0.18);
-      color: #38bdf8;
+    /* Barre de recherche mobile (16px pour éviter le zoom iOS) */
+    .search-wrap {
+      position: relative;
+      margin-bottom: 12px;
     }
 
     .search-input {
-      background: rgba(15, 23, 42, 0.75);
+      width: 100%;
+      background: rgba(15, 23, 42, 0.8);
       border: 1px solid var(--border-color);
       color: var(--text-main);
-      padding: 9px 14px;
-      border-radius: 12px;
-      font-size: 0.88rem;
-      min-width: 240px;
+      padding: 10px 14px 10px 36px;
+      border-radius: 13px;
+      font-size: 16px;
       outline: none;
     }
 
+    .search-input:focus {
+      border-color: var(--accent-blue);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.9rem;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    /* Cartes de colis optimisées mobile */
     .packages-list {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
 
     .package-card {
       background: var(--bg-card);
       backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      padding: 20px 22px;
-      transition: all 0.2s ease;
+      border-radius: 18px;
+      padding: 14px 14px 12px;
+      transition: border-color 0.2s ease;
     }
 
     .package-card.bookmarked {
       border-color: rgba(245, 158, 11, 0.55);
-      background: linear-gradient(180deg, rgba(245, 158, 11, 0.07) 0%, rgba(30, 41, 59, 0.78) 100%);
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.09) 0%, rgba(30, 41, 59, 0.82) 100%);
     }
 
-    .pkg-top {
+    /* Ligne supérieure : badges à gauche, boutons ⭐ / 🗑️ à droite sur la même ligne */
+    .pkg-header-row {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
-      gap: 14px;
-      margin-bottom: 16px;
-    }
-
-    .pkg-identity {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+      gap: 8px;
+      margin-bottom: 8px;
     }
 
     .pkg-badges {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      min-width: 0;
     }
 
     .carrier-badge {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 3px 10px;
+      gap: 4px;
+      padding: 3px 9px;
       border-radius: 999px;
-      font-size: 0.76rem;
+      font-size: 0.72rem;
       font-weight: 700;
       color: #fff;
     }
@@ -315,11 +321,11 @@
     .eta-badge {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      padding: 3px 10px;
+      gap: 4px;
+      padding: 3px 8px;
       border-radius: 999px;
-      font-size: 0.76rem;
-      font-weight: 600;
+      font-size: 0.72rem;
+      font-weight: 700;
       background: rgba(16, 185, 129, 0.16);
       color: #34d399;
       border: 1px solid rgba(16, 185, 129, 0.35);
@@ -328,59 +334,73 @@
     .pickup-badge {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      padding: 3px 10px;
+      gap: 4px;
+      padding: 3px 9px;
       border-radius: 999px;
-      font-size: 0.78rem;
-      font-weight: 700;
-      background: rgba(245, 158, 11, 0.2);
+      font-size: 0.74rem;
+      font-weight: 800;
+      background: rgba(245, 158, 11, 0.22);
       color: #fbbf24;
-      border: 1px solid rgba(245, 158, 11, 0.45);
-    }
-
-    .pkg-title {
-      font-size: 1.08rem;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .pkg-tracking {
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      border: 1px solid rgba(245, 158, 11, 0.5);
     }
 
     .pkg-actions {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      flex-shrink: 0;
     }
 
     .icon-btn {
-      background: rgba(15, 23, 42, 0.6);
+      background: rgba(15, 23, 42, 0.65);
       border: 1px solid var(--border-color);
       color: var(--text-muted);
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      font-size: 1.05rem;
+      font-size: 0.92rem;
     }
 
     .icon-btn.active-star {
       color: #fbbf24;
       border-color: rgba(245, 158, 11, 0.5);
-      background: rgba(245, 158, 11, 0.15);
+      background: rgba(245, 158, 11, 0.16);
     }
 
+    /* Titre du contenu du colis */
+    .pkg-title {
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: var(--text-main);
+      line-height: 1.32;
+      margin-bottom: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-word;
+    }
+
+    .pkg-title.expanded {
+      -webkit-line-clamp: unset;
+    }
+
+    .pkg-tracking {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      margin-bottom: 10px;
+    }
+
+    /* Barre de progression compacte & 4 jalons sur 1 seule ligne */
     .progress-section {
-      margin: 14px 0 12px;
-      background: rgba(15, 23, 42, 0.55);
-      padding: 14px 16px;
-      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.62);
+      padding: 10px 12px;
+      border-radius: 13px;
       border: 1px solid rgba(148, 163, 184, 0.1);
     }
 
@@ -388,8 +408,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
-      font-size: 0.88rem;
+      margin-bottom: 7px;
+      font-size: 0.8rem;
     }
 
     .status-label {
@@ -403,90 +423,86 @@
 
     .progress-percent {
       font-weight: 800;
-      font-size: 0.9rem;
+      font-size: 0.82rem;
     }
 
     .progress-track {
       width: 100%;
-      height: 12px;
+      height: 9px;
       background: rgba(30, 41, 59, 0.95);
       border-radius: 999px;
       overflow: hidden;
-      position: relative;
     }
 
     .progress-fill {
       height: 100%;
       border-radius: 999px;
       background: linear-gradient(90deg, #0ea5e9 0%, #6366f1 50%, #10b981 100%);
-      transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-      position: relative;
+      transition: width 0.5s ease;
     }
 
     .steps-row {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
-      margin-top: 10px;
+      gap: 4px;
+      margin-top: 8px;
     }
 
     .step-item {
-      font-size: 0.74rem;
-      color: rgba(148, 163, 184, 0.5);
+      font-size: 0.66rem;
+      color: rgba(148, 163, 184, 0.45);
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 4px;
       font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .step-item.done { color: var(--text-main); }
     .step-item.current { color: #38bdf8; font-weight: 700; }
 
     .step-dot {
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: rgba(148, 163, 184, 0.3);
       flex-shrink: 0;
     }
 
     .step-item.done .step-dot { background: #10b981; }
-    .step-item.current .step-dot { background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
+    .step-item.current .step-dot { background: #38bdf8; box-shadow: 0 0 6px #38bdf8; }
 
     .pkg-footer {
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      margin-top: 12px;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-    }
-
-    .pkg-links {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(148, 163, 184, 0.08);
+      font-size: 0.76rem;
     }
 
     .link-sm {
       color: #38bdf8;
       text-decoration: none;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       background: none;
       border: none;
-      font-size: 0.8rem;
+      font-size: 0.76rem;
+      padding: 2px 0;
     }
 
     .events-drawer {
-      margin-top: 12px;
-      padding-top: 12px;
+      margin-top: 10px;
+      padding-top: 8px;
       border-top: 1px dashed var(--border-color);
       display: none;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
     }
 
     .events-drawer.open { display: flex; }
@@ -494,98 +510,152 @@
     .event-line {
       display: flex;
       justify-content: space-between;
-      gap: 12px;
-      font-size: 0.8rem;
+      gap: 8px;
+      font-size: 0.73rem;
       color: var(--text-muted);
-      background: rgba(15, 23, 42, 0.4);
-      padding: 7px 11px;
+      background: rgba(15, 23, 42, 0.45);
+      padding: 6px 9px;
       border-radius: 8px;
+    }
+
+    /* Barre de navigation fixe en bas d'écran (Style iOS / Android Tab Bar) */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 90;
+      background: rgba(11, 17, 32, 0.92);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-top: 1px solid var(--border-color);
+      padding: 6px 10px calc(6px + var(--safe-bottom));
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .nav-tab {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 6px 4px;
+      border-radius: 12px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .nav-tab .nav-ico {
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .nav-tab.active {
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
     }
 
     .empty-state {
       text-align: center;
-      padding: 56px 24px;
+      padding: 40px 18px;
       background: var(--bg-card);
       border: 1px dashed var(--border-color);
-      border-radius: var(--radius-lg);
+      border-radius: 18px;
     }
 
+    /* Modales façon Bottom-Sheet sur téléphone */
     .modal-backdrop {
       position: fixed;
       inset: 0;
       background: rgba(3, 7, 18, 0.78);
       backdrop-filter: blur(6px);
       display: none;
-      align-items: center;
+      align-items: flex-end;
       justify-content: center;
-      padding: 16px;
-      z-index: 100;
+      z-index: 200;
     }
 
     .modal-backdrop.open { display: flex; }
 
     .modal {
       background: #0f172a;
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 20px;
-      max-width: 520px;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 22px 22px 0 0;
+      max-width: 540px;
       width: 100%;
-      padding: 24px;
-      max-height: 90vh;
+      padding: 20px 18px calc(22px + var(--safe-bottom));
+      max-height: 88vh;
       overflow-y: auto;
+    }
+
+    @media (min-width: 640px) {
+      .modal-backdrop { align-items: center; padding: 16px; }
+      .modal { border-radius: 20px; border: 1px solid rgba(148, 163, 184, 0.25); padding: 24px; }
     }
 
     .modal-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 18px;
+      margin-bottom: 14px;
     }
 
-    .form-group { margin-bottom: 14px; }
+    .modal-header h2 {
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+
+    .form-group { margin-bottom: 12px; }
     .form-group label {
       display: block;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       font-weight: 600;
       color: var(--text-muted);
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
 
     .form-control {
       width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
+      padding: 11px 12px;
+      border-radius: 11px;
       border: 1px solid var(--border-color);
-      background: rgba(30, 41, 59, 0.8);
+      background: rgba(30, 41, 59, 0.85);
       color: var(--text-main);
-      font-size: 0.92rem;
+      font-size: 16px;
     }
 
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      gap: 10px;
     }
 
     .helper-box {
       background: rgba(56, 189, 248, 0.08);
       border: 1px solid rgba(56, 189, 248, 0.25);
       border-radius: 12px;
-      padding: 12px 14px;
-      font-size: 0.8rem;
+      padding: 11px 13px;
+      font-size: 0.78rem;
       color: #bae6fd;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .status-banner {
-      margin-bottom: 18px;
-      padding: 12px 16px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
       border-radius: 12px;
-      font-size: 0.88rem;
+      font-size: 0.8rem;
       display: none;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
+      gap: 8px;
     }
 
     .status-banner.error {
@@ -603,8 +673,8 @@
     }
 
     .spinner {
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
       border: 2px solid rgba(255,255,255,0.3);
       border-top-color: #fff;
       border-radius: 50%;
@@ -613,27 +683,21 @@
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    @media (max-width: 640px) {
-      .steps-row { grid-template-columns: repeat(2, 1fr); }
-      .pkg-top { flex-direction: column; }
-      .pkg-actions { align-self: flex-end; }
-    }
   </style>
 </head>
 <body>
-  <!-- Écran de verrouillage PIN (aucune adresse mail ni colis visible sans le PIN) -->
+  <!-- Écran de verrouillage PIN -->
   <div id="lockScreen">
     <div class="lock-card">
       <img src="icon.svg" alt="ColisTrack" />
-      <h2 style="font-size:1.3rem;margin-bottom:6px;">🔒 Accès Privé ColisTrack</h2>
-      <p style="font-size:0.85rem;color:var(--text-muted);">
-        Entrez votre code PIN personnel pour déverrouiller vos suivis de colis (aucune adresse e-mail n'est publique).
+      <h2 style="font-size:1.2rem;margin-bottom:6px;">🔒 Accès Privé ColisTrack</h2>
+      <p style="font-size:0.82rem;color:var(--text-muted);">
+        Entrez votre code PIN personnel pour déverrouiller vos suivis de colis.
       </p>
       <form id="pinUnlockForm">
-        <input type="password" id="pinInput" class="pin-input" inputmode="numeric" placeholder="••••" required autofocus />
-        <div id="pinErrorMsg" style="color:#fda4af;font-size:0.8rem;margin-bottom:10px;display:none;"></div>
-        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;">
+        <input type="password" id="pinInput" class="pin-input" inputmode="numeric" placeholder="••••" required />
+        <div id="pinErrorMsg" style="color:#fda4af;font-size:0.78rem;margin-bottom:10px;display:none;"></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;padding:12px;">
           Déverrouiller mes livraisons
         </button>
       </form>
@@ -641,112 +705,101 @@
   </div>
 
   <div class="container">
-    <header>
+    <!-- Barre supérieure mobile sticky -->
+    <header class="app-header">
       <div class="brand">
         <img src="icon.svg" alt="ColisTrack" class="brand-icon" />
         <div class="brand-title">
           <h1>ColisTrack</h1>
-          <div class="brand-subtitle" id="syncStatusText">🔒 Coffre Cloud 24h/24 (Mac éteint supporté)</div>
+          <div class="brand-subtitle" id="syncStatusText">🔒 Synchro Cloud 24h/24</div>
         </div>
       </div>
 
-      <div class="header-actions">
-        <button class="btn btn-amber" id="btnBookmarkGuide">
-          🔖 Signet / Écran d'accueil
-        </button>
-        <button class="btn" id="btnAddManual">
-          ➕ Colis manuel
-        </button>
-        <button class="btn" id="btnOpenSettings">
-          🔒 Sécurité & PIN
-        </button>
+      <div class="header-right">
+        <button class="btn btn-icon-only" id="btnAddManual" title="Ajouter un colis">➕</button>
+        <button class="btn btn-icon-only" id="btnOpenSettings" title="Sécurité & Signet">🔒</button>
         <button class="btn btn-primary" id="btnScanNow">
           <span class="spinner" id="scanSpinner"></span>
-          <span id="scanBtnLabel">🔄 Actualiser mes mails</span>
+          <span id="scanBtnLabel">🔄 Actualiser</span>
         </button>
       </div>
     </header>
 
     <div id="alertBanner" class="status-banner"></div>
 
-    <section class="summary-grid">
-      <div class="stat-card">
-        <span class="stat-label">En cours d'acheminement</span>
+    <!-- Bandeau de statistiques compact sur 1 ligne -->
+    <section class="summary-strip">
+      <div class="stat-pill">
         <div class="stat-value" id="statInTransit">0</div>
-        <span class="stat-sub">Colis attendus prochainement</span>
+        <span class="stat-label">En cours</span>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">Livraison imminente / Relais</span>
-        <div class="stat-value" id="statImminent" style="color: #38bdf8;">0</div>
-        <span class="stat-sub">En tournée ou prêt à retirer</span>
+      <div class="stat-pill">
+        <div class="stat-value" id="statImminent" style="color:#38bdf8;">0</div>
+        <span class="stat-label">Imminent</span>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">Colis Épinglés (Signets ⭐)</span>
-        <div class="stat-value" id="statBookmarked" style="color: #fbbf24;">0</div>
-        <span class="stat-sub">Suivis prioritaires</span>
+      <div class="stat-pill">
+        <div class="stat-value" id="statBookmarked" style="color:#fbbf24;">0</div>
+        <span class="stat-label">Épinglés ⭐</span>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">Livrés récemment</span>
-        <div class="stat-value" id="statDelivered" style="color: #34d399;">0</div>
-        <span class="stat-sub">Sur les 30 derniers jours</span>
+      <div class="stat-pill">
+        <div class="stat-value" id="statDelivered" style="color:#34d399;">0</div>
+        <span class="stat-label">Livrés</span>
       </div>
     </section>
 
-    <div class="toolbar">
-      <div class="tabs">
-        <button class="tab-btn active" data-filter="all">Tous (<span id="countAll">0</span>)</button>
-        <button class="tab-btn" data-filter="active">En cours (<span id="countActive">0</span>)</button>
-        <button class="tab-btn" data-filter="bookmarked">⭐ Épinglés (<span id="countStar">0</span>)</button>
-        <button class="tab-btn" data-filter="delivered">Livrés (<span id="countDelivered">0</span>)</button>
-      </div>
-      <input type="search" id="searchInput" class="search-input" placeholder="Rechercher un transporteur, n° suivi..." />
+    <!-- Recherche rapide -->
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="search" id="searchInput" class="search-input" placeholder="Rechercher un article, transporteur, n° suivi..." />
     </div>
 
+    <!-- Liste des colis -->
     <main id="packagesContainer" class="packages-list"></main>
   </div>
 
-  <!-- Modal Sécurité & PIN -->
+  <!-- Barre d'onglets fixe en bas d'écran (ergonomie mobile au pouce) -->
+  <nav class="bottom-nav">
+    <button class="nav-tab active" data-filter="all">
+      <span class="nav-ico">📦</span>
+      <span>Tous (<span id="countAll">0</span>)</span>
+    </button>
+    <button class="nav-tab" data-filter="active">
+      <span class="nav-ico">🚚</span>
+      <span>En cours (<span id="countActive">0</span>)</span>
+    </button>
+    <button class="nav-tab" data-filter="bookmarked">
+      <span class="nav-ico">⭐</span>
+      <span>Signets (<span id="countStar">0</span>)</span>
+    </button>
+    <button class="nav-tab" data-filter="delivered">
+      <span class="nav-ico">✅</span>
+      <span>Livrés (<span id="countDelivered">0</span>)</span>
+    </button>
+  </nav>
+
+  <!-- Modal Sécurité, Signet & PIN -->
   <div class="modal-backdrop" id="settingsModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>🔒 Coffre Cloud Privé & Code PIN</h2>
+        <h2>🔒 Coffre Privé & Signet Mobile</h2>
         <button class="icon-btn" data-close="settingsModal">✕</button>
       </div>
 
       <div class="helper-box">
-        🛡️ <strong>Adresse e-mail masquée :</strong> Votre adresse mail n'est jamais écrite dans le code de cette page. Le serveur cloud sécurisé vérifie votre code PIN avant de renvoyer vos colis.<br/>
-        Compte lié : <strong id="maskedAccountDisplay">Compte privé masqué</strong>
+        🛡️ <strong>Confidentialité :</strong> Compte lié <strong id="maskedAccountDisplay">masqué</strong>.<br/>
+        📲 <strong>Astuce iPhone :</strong> Appuyez sur <strong>Partager</strong> → <strong>« Sur l'écran d'accueil »</strong> pour l'avoir en plein écran comme une application native.
       </div>
 
       <form id="changePinForm">
         <div class="form-group">
           <label for="newPinInput">Modifier votre code PIN personnel</label>
-          <input type="password" id="newPinInput" class="form-control" inputmode="numeric" placeholder="Nouveau code PIN (ex: 4 à 8 chiffres)" required />
+          <input type="password" id="newPinInput" class="form-control" inputmode="numeric" placeholder="Nouveau code PIN" required />
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px;">
-          <button type="button" class="btn" id="btnLockNow">🔒 Verrouiller cet appareil</button>
-          <button type="submit" class="btn btn-primary">Enregistrer le nouveau PIN</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px;">
+          <button type="button" class="btn" id="btnLockNow">🔒 Verrouiller</button>
+          <button type="submit" class="btn btn-primary">Changer le PIN</button>
         </div>
       </form>
-    </div>
-  </div>
-
-  <!-- Modal Guide Signet -->
-  <div class="modal-backdrop" id="bookmarkModal">
-    <div class="modal">
-      <div class="modal-header">
-        <h2>🔖 Installer sur votre téléphone (Mac éteint)</h2>
-        <button class="icon-btn" data-close="bookmarkModal">✕</button>
-      </div>
-      <div class="helper-box">
-        <strong>Sur iPhone (Safari) :</strong><br/>
-        1. Appuyez sur le bouton <strong>Partager</strong> en bas de l'écran.<br/>
-        2. Choisissez <strong>« Sur l'écran d'accueil »</strong>.<br/>
-        3. Entrez une seule fois votre code PIN : votre téléphone s'en souviendra et pourra actualiser vos colis 24h/24 même lorsque votre Mac est éteint !
-      </div>
-      <div style="display:flex;justify-content:flex-end;">
-        <button type="button" class="btn btn-primary" data-close="bookmarkModal">Fermer</button>
-      </div>
     </div>
   </div>
 
@@ -754,49 +807,49 @@
   <div class="modal-backdrop" id="manualModal">
     <div class="modal">
       <div class="modal-header">
-        <h2>➕ Ajouter un suivi de colis manuellement</h2>
+        <h2>➕ Ajouter un colis manuellement</h2>
         <button class="icon-btn" data-close="manualModal">✕</button>
       </div>
       <form id="manualForm">
         <div class="form-group">
-          <label for="manTitle">Nom ou description du colis</label>
-          <input type="text" id="manTitle" class="form-control" placeholder="ex: Casque Audio - Fnac" required />
+          <label for="manTitle">Contenu du colis (article commandé)</label>
+          <input type="text" id="manTitle" class="form-control" placeholder="ex: Baskets Stan Smith - Zalando" required />
         </div>
         <div class="form-row">
           <div class="form-group">
             <label for="manCarrier">Transporteur</label>
             <select id="manCarrier" class="form-control">
-              <option value="Colissimo|#f59e0b">Colissimo / La Poste</option>
+              <option value="Colissimo|#f59e0b">Colissimo</option>
               <option value="Chronopost|#0ea5e9">Chronopost</option>
               <option value="Mondial Relay|#ec4899">Mondial Relay</option>
               <option value="Amazon|#f97316">Amazon</option>
               <option value="DPD|#ef4444">DPD</option>
-              <option value="DHL Express|#eab308">DHL Express</option>
+              <option value="DHL|#eab308">DHL</option>
               <option value="UPS|#a16207">UPS</option>
             </select>
           </div>
           <div class="form-group">
             <label for="manTracking">N° de suivi</label>
-            <input type="text" id="manTracking" class="form-control" placeholder="ex: 6A12345678901" />
+            <input type="text" id="manTracking" class="form-control" placeholder="Optionnel" />
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="manStep">Étape actuelle</label>
+            <label for="manStep">Étape</label>
             <select id="manStep" class="form-control">
-              <option value="1">1 - Commande préparée (20%)</option>
-              <option value="2" selected>2 - Expédié / En transit (50%)</option>
-              <option value="3">3 - En cours de livraison (78%)</option>
-              <option value="4">4 - Disponible en Point Relais (90%)</option>
+              <option value="1">1 - Préparé (20%)</option>
+              <option value="2" selected>2 - En transit (50%)</option>
+              <option value="3">3 - En livraison (78%)</option>
+              <option value="4">4 - Point Relais (90%)</option>
               <option value="5">5 - Livré (100%)</option>
             </select>
           </div>
           <div class="form-group">
-            <label for="manEta">Livraison estimée</label>
+            <label for="manEta">Date prévue</label>
             <input type="date" id="manEta" class="form-control" />
           </div>
         </div>
-        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
           <button type="button" class="btn" data-close="manualModal">Annuler</button>
           <button type="submit" class="btn btn-primary">Ajouter</button>
         </div>
@@ -809,7 +862,6 @@
     const STORAGE_KEY_DELIVERIES = "colistrack_deliveries_v2";
     const STORAGE_KEY_BOOKMARKS = "colistrack_bookmarks_v2";
     const STORAGE_KEY_PIN = "colistrack_pin_v2";
-    const STORAGE_KEY_SYNC = "colistrack_last_sync_v2";
 
     let deliveries = [];
     let bookmarkedIds = new Set();
@@ -840,7 +892,7 @@
     function showBanner(message, type = "info") {
       const banner = document.getElementById("alertBanner");
       banner.className = `status-banner ${type}`;
-      banner.innerHTML = `<span>${message}</span><button class="icon-btn" style="width:26px;height:26px;font-size:0.8rem;" onclick="this.parentElement.style.display='none'">✕</button>`;
+      banner.innerHTML = `<span>${message}</span><button class="icon-btn" style="width:24px;height:24px;font-size:0.75rem;" onclick="this.parentElement.style.display='none'">✕</button>`;
       banner.style.display = "flex";
     }
 
@@ -855,7 +907,7 @@
           minute: "2-digit"
         });
         document.getElementById("syncStatusText").textContent =
-          `🔒 Synchro Cloud : ${formatted}${maskedAccount ? " • " + maskedAccount : ""}`;
+          `🔒 ${maskedAccount || "Cloud"} • ${formatted}`;
       } catch (_) {}
     }
 
@@ -893,9 +945,7 @@
           renderDeliveries();
         }
       } catch (e) {
-        if (e.message !== "LOCKED") {
-          renderDeliveries();
-        }
+        if (e.message !== "LOCKED") renderDeliveries();
       }
     }
 
@@ -927,7 +977,7 @@
       const spinner = document.getElementById("scanSpinner");
       const label = document.getElementById("scanBtnLabel");
       spinner.style.display = "inline-block";
-      label.textContent = "Analyse Cloud...";
+      label.textContent = "Analyse...";
 
       try {
         const data = await callCloudVault("scan");
@@ -940,14 +990,14 @@
         saveLocalCache();
         updateSyncSubtitle(data.synced_at, data.account_masked);
         renderDeliveries();
-        showBanner(`✅ Analyse Cloud terminée (${data.deliveries.length} suivi(s) actif(s)).`, "info");
+        showBanner(`✅ ${data.deliveries.length} suivi(s) à jour.`, "info");
       } catch (e) {
         if (e.message !== "LOCKED") {
           showBanner("Erreur de connexion au coffre Cloud.", "error");
         }
       } finally {
         spinner.style.display = "none";
-        label.textContent = "🔄 Actualiser mes mails";
+        label.textContent = "🔄 Actualiser";
       }
     }
 
@@ -963,7 +1013,7 @@
           userPin = newPin;
           localStorage.setItem(STORAGE_KEY_PIN, newPin);
           closeModal("settingsModal");
-          showBanner("🔒 Votre nouveau code PIN a bien été enregistré.", "info");
+          showBanner("🔒 Nouveau code PIN enregistré.", "info");
         }
       } catch (_) {}
     });
@@ -982,9 +1032,9 @@
       today.setHours(0, 0, 0, 0);
       const target = new Date(isoDate + "T00:00:00");
       const diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
-      if (diffDays === 0) return "🔥 Arrive aujourd'hui";
-      if (diffDays === 1) return "⚡ Arrive demain";
-      return "📅 Prévu le " + target.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+      if (diffDays === 0) return "🔥 Aujourd'hui";
+      if (diffDays === 1) return "⚡ Demain";
+      return "📅 " + target.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
     }
 
     function toggleBookmark(id) {
@@ -1043,11 +1093,11 @@
       if (filtered.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
-            <h3>Aucun colis dans cette vue 📦</h3>
-            <p style="color:var(--text-muted);margin:10px auto 18px;max-width:460px;">
-              Cliquez sur « 🔄 Actualiser mes mails » pour scanner votre boîte mail directement depuis le Cloud (même Mac éteint).
+            <h3 style="font-size:1.05rem;">Aucun colis dans cet onglet 📦</h3>
+            <p style="color:var(--text-muted);font-size:0.82rem;margin:8px auto 16px;">
+              Appuyez sur « 🔄 Actualiser » pour scanner vos mails depuis le Cloud.
             </p>
-            <button class="btn btn-primary" onclick="triggerCloudScan()">🔄 Actualiser mes mails maintenant</button>
+            <button class="btn btn-primary" onclick="triggerCloudScan()">🔄 Actualiser mes mails</button>
           </div>
         `;
         return;
@@ -1076,23 +1126,13 @@
 
           return `
             <article class="package-card ${isStar ? "bookmarked" : ""}">
-              <div class="pkg-top">
-                <div class="pkg-identity">
-                  <div class="pkg-badges">
-                    <span class="carrier-badge" style="background:${pkg.carrier_color || "#6366f1"}">
-                      🚚 ${escapeHtml(pkg.carrier_name)}
-                    </span>
-                    ${etaText ? `<span class="eta-badge">${escapeHtml(etaText)}</span>` : ""}
-                    ${pkg.pickup_code ? `<span class="pickup-badge">🔑 Code retrait : ${escapeHtml(pkg.pickup_code)}</span>` : ""}
-                  </div>
-                  <h3 class="pkg-title">${escapeHtml(pkg.title)}</h3>
-                  <div class="pkg-tracking">
-                    ${
-                      pkg.tracking_number
-                        ? `<span>N° de suivi : <strong>${escapeHtml(pkg.tracking_number)}</strong></span>`
-                        : `<span>Suivi détecté par email</span>`
-                    }
-                  </div>
+              <div class="pkg-header-row">
+                <div class="pkg-badges">
+                  <span class="carrier-badge" style="background:${pkg.carrier_color || "#6366f1"}">
+                    🚚 ${escapeHtml(pkg.carrier_name)}
+                  </span>
+                  ${etaText ? `<span class="eta-badge">${escapeHtml(etaText)}</span>` : ""}
+                  ${pkg.pickup_code ? `<span class="pickup-badge">🔑 Code: ${escapeHtml(pkg.pickup_code)}</span>` : ""}
                 </div>
 
                 <div class="pkg-actions">
@@ -1103,6 +1143,13 @@
                     🗑️
                   </button>
                 </div>
+              </div>
+
+              <h3 class="pkg-title" onclick="this.classList.toggle('expanded')" title="Appuyez pour voir le titre complet">
+                🛍️ ${escapeHtml(pkg.title)}
+              </h3>
+              <div class="pkg-tracking">
+                ${pkg.tracking_number ? `Suivi : <strong>${escapeHtml(pkg.tracking_number)}</strong>` : `Suivi par email`}
               </div>
 
               <div class="progress-section">
@@ -1116,27 +1163,24 @@
                   <div class="progress-fill" style="width: ${pkg.percent}%"></div>
                 </div>
                 <div class="steps-row">
-                  <div class="step-item ${step1Class}"><span class="step-dot"></span> Préparation</div>
+                  <div class="step-item ${step1Class}"><span class="step-dot"></span> Prépa.</div>
                   <div class="step-item ${step2Class}"><span class="step-dot"></span> Expédié</div>
-                  <div class="step-item ${step3Class}"><span class="step-dot"></span> ${pkg.step === 4 ? "Point Relais" : "En livraison"}</div>
+                  <div class="step-item ${step3Class}"><span class="step-dot"></span> ${pkg.step === 4 ? "Relais" : "Livraison"}</div>
                   <div class="step-item ${step4Class}"><span class="step-dot"></span> Livré</div>
                 </div>
               </div>
 
               <div class="pkg-footer">
-                <span>${escapeHtml(pkg.status_description || "")}</span>
-                <div class="pkg-links">
-                  ${
-                    pkg.tracking_url
-                      ? `<a href="${escapeAttr(pkg.tracking_url)}" target="_blank" rel="noopener" class="link-sm">🔗 Suivre chez ${escapeHtml(pkg.carrier_name)} ↗</a>`
-                      : ""
-                  }
-                  ${
-                    pkg.events && pkg.events.length > 0
-                      ? `<button class="link-sm" onclick="toggleEvents('ev-${idx}')">📩 Historique (${pkg.events.length})</button>`
-                      : ""
-                  }
-                </div>
+                ${
+                  pkg.tracking_url
+                    ? `<a href="${escapeAttr(pkg.tracking_url)}" target="_blank" rel="noopener" class="link-sm">🔗 Suivre le colis ↗</a>`
+                    : `<span></span>`
+                }
+                ${
+                  pkg.events && pkg.events.length > 0
+                    ? `<button class="link-sm" onclick="toggleEvents('ev-${idx}')">📩 Mails (${pkg.events.length})</button>`
+                    : ""
+                }
               </div>
 
               <div id="ev-${idx}" class="events-drawer">${eventsHtml}</div>
@@ -1170,14 +1214,14 @@
     });
 
     document.getElementById("btnOpenSettings").addEventListener("click", () => openModal("settingsModal"));
-    document.getElementById("btnBookmarkGuide").addEventListener("click", () => openModal("bookmarkModal"));
     document.getElementById("btnAddManual").addEventListener("click", () => openModal("manualModal"));
 
-    document.querySelectorAll(".tab-btn").forEach((btn) => {
+    document.querySelectorAll(".nav-tab").forEach((btn) => {
       btn.addEventListener("click", () => {
-        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".nav-tab").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
         currentFilter = btn.getAttribute("data-filter");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         renderDeliveries();
       });
     });
