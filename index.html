@@ -875,16 +875,105 @@
       });
     }
 
+    function normStr(s) {
+      return String(s || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, "");
+    }
+
+    function isGenericTitle(title) {
+      const t = String(title || "").toLowerCase();
+      return (
+        t.includes("votre colis arrive") ||
+        t.includes("besoin d’un code") ||
+        t.includes("besoin d'un code") ||
+        t.includes("arrivé chez le transporteur") ||
+        t.includes("shipment is on its way")
+      );
+    }
+
+    function deduplicateDeliveries(list) {
+      const sorted = [...(list || [])].sort((a, b) => {
+        const aTrk = a.tracking_number ? 1 : 0;
+        const bTrk = b.tracking_number ? 1 : 0;
+        if (aTrk !== bTrk) return bTrk - aTrk;
+        const aSpec = !isGenericTitle(a.title) ? 1 : 0;
+        const bSpec = !isGenericTitle(b.title) ? 1 : 0;
+        if (aSpec !== bSpec) return bSpec - aSpec;
+        return String(b.title || "").length - String(a.title || "").length;
+      });
+
+      const result = [];
+      for (const item of sorted) {
+        const itemNormTitle = normStr(item.title);
+        const itemEventNorms = new Set(
+          [item.title, ...(item.events || []).map((e) => e.subject)].map(normStr).filter((x) => x.length >= 8)
+        );
+
+        let matched = null;
+        for (const ex of result) {
+          if (ex.id === item.id) { matched = ex; break; }
+          if (ex.tracking_number && item.tracking_number && ex.tracking_number === item.tracking_number) {
+            matched = ex; break;
+          }
+          const exEventNorms = [ex.title, ...(ex.events || []).map((e) => e.subject)].map(normStr).filter((x) => x.length >= 8);
+          if (exEventNorms.some((en) => itemEventNorms.has(en))) {
+            matched = ex; break;
+          }
+          const exNormTitle = normStr(ex.title);
+          if (itemNormTitle.length >= 12 && exNormTitle.length >= 12) {
+            const pLen = Math.min(15, itemNormTitle.length, exNormTitle.length);
+            if (itemNormTitle.slice(0, pLen) === exNormTitle.slice(0, pLen)) {
+              matched = ex; break;
+            }
+          }
+        }
+
+        if (!matched) {
+          result.push({ ...item, events: [...(item.events || [])] });
+        } else {
+          if (!matched.tracking_number && item.tracking_number) {
+            matched.tracking_number = item.tracking_number;
+            matched.id = "TRK:" + item.tracking_number;
+          }
+          if (!matched.tracking_url && item.tracking_url) matched.tracking_url = item.tracking_url;
+          if ((isGenericTitle(matched.title) && !isGenericTitle(item.title)) || String(item.title || "").length > String(matched.title || "").length + 6) {
+            if (!isGenericTitle(item.title)) matched.title = item.title;
+          }
+          if ((item.step || 1) > (matched.step || 1)) {
+            matched.step = item.step;
+            matched.percent = item.percent;
+            matched.status_label = item.status_label;
+            matched.status_description = item.status_description;
+          }
+          if (!matched.estimated_delivery && item.estimated_delivery) matched.estimated_delivery = item.estimated_delivery;
+          if (!matched.pickup_code && item.pickup_code) matched.pickup_code = item.pickup_code;
+          const seenSubj = new Set((matched.events || []).map((e) => normStr(e.subject)));
+          for (const ev of item.events || []) {
+            const ns = normStr(ev.subject);
+            if (ns && !seenSubj.has(ns)) {
+              seenSubj.add(ns);
+              matched.events.push(ev);
+            }
+          }
+        }
+      }
+      return result;
+    }
+
     function loadLocalCache() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY_DELIVERIES);
-        if (raw) deliveries = JSON.parse(raw);
+        if (raw) deliveries = deduplicateDeliveries(JSON.parse(raw));
         const rawBm = localStorage.getItem(STORAGE_KEY_BOOKMARKS);
         if (rawBm) bookmarkedIds = new Set(JSON.parse(rawBm));
       } catch (_) {}
     }
 
     function saveLocalCache() {
+      deliveries = deduplicateDeliveries(deliveries);
       localStorage.setItem(STORAGE_KEY_DELIVERIES, JSON.stringify(deliveries));
       localStorage.setItem(STORAGE_KEY_BOOKMARKS, JSON.stringify([...bookmarkedIds]));
     }
