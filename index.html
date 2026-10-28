@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>ColisTrack — Mes Prochaines Livraisons</title>
+  <meta name="description" content="Suivi privé de vos livraisons de colis avec barre de progression." />
+
+  <!-- PWA & Signet / Écran d'accueil -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ColisTrack" />
+
+  <style>
+    :root {
+      --bg-main: #0b1120;
+      --bg-card: rgba(30, 41, 59, 0.72);
+      --border-color: rgba(148, 163, 184, 0.16);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-indigo: #6366f1;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --shadow-lg: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at 15% 0%, #1e1b4b 0%, #0b1120 55%, #070b14 100%);
+      color: var(--text-main);
+      min-height: 100vh;
+      line-height: 1.5;
+      padding-bottom: 60px;
+    }
+
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 24px 18px;
+    }
+
+    /* Écran de verrouillage par Code PIN (Confidentialité totale) */
+    #lockScreen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, #070b14 75%);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 200;
+    }
+
+    #lockScreen.active {
+      display: flex;
+    }
+
+    .lock-card {
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      border-radius: 24px;
+      padding: 32px 26px;
+      max-width: 390px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+    }
+
+    .lock-card img {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      margin-bottom: 14px;
+    }
+
+    .pin-input {
+      width: 100%;
+      text-align: center;
+      font-size: 1.6rem;
+      letter-spacing: 0.35em;
+      font-weight: 800;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      background: rgba(30, 41, 59, 0.85);
+      color: #fff;
+      margin: 18px 0 14px;
+      outline: none;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      box-shadow: 0 8px 20px rgba(245, 158, 11, 0.25);
+    }
+
+    .brand-title h1 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 15px;
+      border-radius: var(--radius-md);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      background: rgba(30, 41, 59, 0.8);
+      color: var(--text-main);
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      background: rgba(51, 65, 85, 0.9);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 8px 20px -6px rgba(14, 165, 233, 0.55);
+    }
+
+    .btn-amber {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #fbbf24;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 800;
+    }
+
+    .stat-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.75);
+      padding: 5px;
+      border-radius: 14px;
+      border: 1px solid var(--border-color);
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 7px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .tab-btn.active {
+      background: rgba(56, 189, 248, 0.18);
+      color: #38bdf8;
+    }
+
+    .search-input {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 9px 14px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      min-width: 240px;
+      outline: none;
+    }
+
+    .packages-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .package-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px 22px;
+      transition: all 0.2s ease;
+    }
+
+    .package-card.bookmarked {
+      border-color: rgba(245, 158, 11, 0.55);
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.07) 0%, rgba(30, 41, 59, 0.78) 100%);
+    }
+
+    .pkg-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .pkg-identity {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .pkg-badges {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .carrier-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .eta-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      background: rgba(16, 185, 129, 0.16);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .pickup-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+    }
+
+    .pkg-title {
+      font-size: 1.08rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .pkg-tracking {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .pkg-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.05rem;
+    }
+
+    .icon-btn.active-star {
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.5);
+      background: rgba(245, 158, 11, 0.15);
+    }
+
+    .progress-section {
+      margin: 14px 0 12px;
+      background: rgba(15, 23, 42, 0.55);
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.1);
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 0.88rem;
+    }
+
+    .status-label {
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    .status-label.delivered {
+      color: #34d399;
+    }
+
+    .progress-percent {
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 12px;
+      background: rgba(30, 41, 59, 0.95);
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #0ea5e9 0%, #6366f1 50%, #10b981 100%);
+      transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+      position: relative;
+    }
+
+    .steps-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .step-item {
+      font-size: 0.74rem;
+      color: rgba(148, 163, 184, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 600;
+    }
+
+    .step-item.done { color: var(--text-main); }
+    .step-item.current { color: #38bdf8; font-weight: 700; }
+
+    .step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(148, 163, 184, 0.3);
+      flex-shrink: 0;
+    }
+
+    .step-item.done .step-dot { background: #10b981; }
+    .step-item.current .step-dot { background: #38bdf8; box-shadow: 0 0 8px #38bdf8; }
+
+    .pkg-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 12px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .pkg-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .link-sm {
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-size: 0.8rem;
+    }
+
+    .events-drawer {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--border-color);
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .events-drawer.open { display: flex; }
+
+    .event-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: rgba(15, 23, 42, 0.4);
+      padding: 7px 11px;
+      border-radius: 8px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 56px 24px;
+      background: var(--bg-card);
+      border: 1px dashed var(--border-color);
+      border-radius: var(--radius-lg);
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 7, 18, 0.78);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      background: #0f172a;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 20px;
+      max-width: 520px;
+      width: 100%;
+      padding: 24px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background: rgba(30, 41, 59, 0.8);
+      color: var(--text-main);
+      font-size: 0.92rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .helper-box {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 0.8rem;
+      color: #bae6fd;
+      margin-bottom: 16px;
+    }
+
+    .status-banner {
+      margin-bottom: 18px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .status-banner.error {
+      display: flex;
+      background: rgba(244, 63, 94, 0.15);
+      border: 1px solid rgba(244, 63, 94, 0.4);
+      color: #fda4af;
+    }
+
+    .status-banner.info {
+      display: flex;
+      background: rgba(56, 189, 248, 0.14);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #bae6fd;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 640px) {
+      .steps-row { grid-template-columns: repeat(2, 1fr); }
+      .pkg-top { flex-direction: column; }
+      .pkg-actions { align-self: flex-end; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Écran de verrouillage PIN (aucune adresse mail ni colis visible sans le PIN) -->
+  <div id="lockScreen">
+    <div class="lock-card">
+      <img src="icon.svg" alt="ColisTrack" />
+      <h2 style="font-size:1.3rem;margin-bottom:6px;">🔒 Accès Privé ColisTrack</h2>
+      <p style="font-size:0.85rem;color:var(--text-muted);">
+        Entrez votre code PIN personnel pour déverrouiller vos suivis de colis (aucune adresse e-mail n'est publique).
+      </p>
+      <form id="pinUnlockForm">
+        <input type="password" id="pinInput" class="pin-input" inputmode="numeric" placeholder="••••" required autofocus />
+        <div id="pinErrorMsg" style="color:#fda4af;font-size:0.8rem;margin-bottom:10px;display:none;"></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;">
+          Déverrouiller mes livraisons
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="container">
+    <header>
+      <div class="brand">
+        <img src="icon.svg" alt="ColisTrack" class="brand-icon" />
+        <div class="brand-title">
+          <h1>ColisTrack</h1>
+          <div class="brand-subtitle" id="syncStatusText">🔒 Coffre Cloud 24h/24 (Mac éteint supporté)</div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn btn-amber" id="btnBookmarkGuide">
+          🔖 Signet / Écran d'accueil
+        </button>
+        <button class="btn" id="btnAddManual">
+          ➕ Colis manuel
+        </button>
+        <button class="btn" id="btnOpenSettings">
+          🔒 Sécurité & PIN
+        </button>
+        <button class="btn btn-primary" id="btnScanNow">
+          <span class="spinner" id="scanSpinner"></span>
+          <span id="scanBtnLabel">🔄 Actualiser mes mails</span>
+        </button>
+      </div>
+    </header>
+
+    <div id="alertBanner" class="status-banner"></div>
+
+    <section class="summary-grid">
+      <div class="stat-card">
+        <span class="stat-label">En cours d'acheminement</span>
+        <div class="stat-value" id="statInTransit">0</div>
+        <span class="stat-sub">Colis attendus prochainement</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Livraison imminente / Relais</span>
+        <div class="stat-value" id="statImminent" style="color: #38bdf8;">0</div>
+        <span class="stat-sub">En tournée ou prêt à retirer</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Colis Épinglés (Signets ⭐)</span>
+        <div class="stat-value" id="statBookmarked" style="color: #fbbf24;">0</div>
+        <span class="stat-sub">Suivis prioritaires</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Livrés récemment</span>
+        <div class="stat-value" id="statDelivered" style="color: #34d399;">0</div>
+        <span class="stat-sub">Sur les 30 derniers jours</span>
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <div class="tabs">
+        <button class="tab-btn active" data-filter="all">Tous (<span id="countAll">0</span>)</button>
+        <button class="tab-btn" data-filter="active">En cours (<span id="countActive">0</span>)</button>
+        <button class="tab-btn" data-filter="bookmarked">⭐ Épinglés (<span id="countStar">0</span>)</button>
+        <button class="tab-btn" data-filter="delivered">Livrés (<span id="countDelivered">0</span>)</button>
+      </div>
+      <input type="search" id="searchInput" class="search-input" placeholder="Rechercher un transporteur, n° suivi..." />
+    </div>
+
+    <main id="packagesContainer" class="packages-list"></main>
+  </div>
+
+  <!-- Modal Sécurité & PIN -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>🔒 Coffre Cloud Privé & Code PIN</h2>
+        <button class="icon-btn" data-close="settingsModal">✕</button>
+      </div>
+
+      <div class="helper-box">
+        🛡️ <strong>Adresse e-mail masquée :</strong> Votre adresse mail n'est jamais écrite dans le code de cette page. Le serveur cloud sécurisé vérifie votre code PIN avant de renvoyer vos colis.<br/>
+        Compte lié : <strong id="maskedAccountDisplay">Compte privé masqué</strong>
+      </div>
+
+      <form id="changePinForm">
+        <div class="form-group">
+          <label for="newPinInput">Modifier votre code PIN personnel</label>
+          <input type="password" id="newPinInput" class="form-control" inputmode="numeric" placeholder="Nouveau code PIN (ex: 4 à 8 chiffres)" required />
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px;">
+          <button type="button" class="btn" id="btnLockNow">🔒 Verrouiller cet appareil</button>
+          <button type="submit" class="btn btn-primary">Enregistrer le nouveau PIN</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Guide Signet -->
+  <div class="modal-backdrop" id="bookmarkModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>🔖 Installer sur votre téléphone (Mac éteint)</h2>
+        <button class="icon-btn" data-close="bookmarkModal">✕</button>
+      </div>
+      <div class="helper-box">
+        <strong>Sur iPhone (Safari) :</strong><br/>
+        1. Appuyez sur le bouton <strong>Partager</strong> en bas de l'écran.<br/>
+        2. Choisissez <strong>« Sur l'écran d'accueil »</strong>.<br/>
+        3. Entrez une seule fois votre code PIN : votre téléphone s'en souviendra et pourra actualiser vos colis 24h/24 même lorsque votre Mac est éteint !
+      </div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button type="button" class="btn btn-primary" data-close="bookmarkModal">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ajout Manuel -->
+  <div class="modal-backdrop" id="manualModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>➕ Ajouter un suivi de colis manuellement</h2>
+        <button class="icon-btn" data-close="manualModal">✕</button>
+      </div>
+      <form id="manualForm">
+        <div class="form-group">
+          <label for="manTitle">Nom ou description du colis</label>
+          <input type="text" id="manTitle" class="form-control" placeholder="ex: Casque Audio - Fnac" required />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="manCarrier">Transporteur</label>
+            <select id="manCarrier" class="form-control">
+              <option value="Colissimo|#f59e0b">Colissimo / La Poste</option>
+              <option value="Chronopost|#0ea5e9">Chronopost</option>
+              <option value="Mondial Relay|#ec4899">Mondial Relay</option>
+              <option value="Amazon|#f97316">Amazon</option>
+              <option value="DPD|#ef4444">DPD</option>
+              <option value="DHL Express|#eab308">DHL Express</option>
+              <option value="UPS|#a16207">UPS</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="manTracking">N° de suivi</label>
+            <input type="text" id="manTracking" class="form-control" placeholder="ex: 6A12345678901" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="manStep">Étape actuelle</label>
+            <select id="manStep" class="form-control">
+              <option value="1">1 - Commande préparée (20%)</option>
+              <option value="2" selected>2 - Expédié / En transit (50%)</option>
+              <option value="3">3 - En cours de livraison (78%)</option>
+              <option value="4">4 - Disponible en Point Relais (90%)</option>
+              <option value="5">5 - Livré (100%)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="manEta">Livraison estimée</label>
+            <input type="date" id="manEta" class="form-control" />
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
+          <button type="button" class="btn" data-close="manualModal">Annuler</button>
+          <button type="submit" class="btn btn-primary">Ajouter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const CLOUD_API_URL = "https://bfpyeoeggxhaiyvvltbm.supabase.co/functions/v1/colistrack";
+    const STORAGE_KEY_DELIVERIES = "colistrack_deliveries_v2";
+    const STORAGE_KEY_BOOKMARKS = "colistrack_bookmarks_v2";
+    const STORAGE_KEY_PIN = "colistrack_pin_v2";
+    const STORAGE_KEY_SYNC = "colistrack_last_sync_v2";
+
+    let deliveries = [];
+    let bookmarkedIds = new Set();
+    let currentFilter = "all";
+    let searchQuery = "";
+    let userPin = localStorage.getItem(STORAGE_KEY_PIN) || "";
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      });
+    }
+
+    function loadLocalCache() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_DELIVERIES);
+        if (raw) deliveries = JSON.parse(raw);
+        const rawBm = localStorage.getItem(STORAGE_KEY_BOOKMARKS);
+        if (rawBm) bookmarkedIds = new Set(JSON.parse(rawBm));
+      } catch (_) {}
+    }
+
+    function saveLocalCache() {
+      localStorage.setItem(STORAGE_KEY_DELIVERIES, JSON.stringify(deliveries));
+      localStorage.setItem(STORAGE_KEY_BOOKMARKS, JSON.stringify([...bookmarkedIds]));
+    }
+
+    function showBanner(message, type = "info") {
+      const banner = document.getElementById("alertBanner");
+      banner.className = `status-banner ${type}`;
+      banner.innerHTML = `<span>${message}</span><button class="icon-btn" style="width:26px;height:26px;font-size:0.8rem;" onclick="this.parentElement.style.display='none'">✕</button>`;
+      banner.style.display = "flex";
+    }
+
+    function updateSyncSubtitle(isoString, maskedAccount = "") {
+      if (!isoString) return;
+      try {
+        const dt = new Date(isoString);
+        const formatted = dt.toLocaleString("fr-FR", {
+          day: "2-digit",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+        document.getElementById("syncStatusText").textContent =
+          `🔒 Synchro Cloud : ${formatted}${maskedAccount ? " • " + maskedAccount : ""}`;
+      } catch (_) {}
+    }
+
+    async function callCloudVault(action, extra = {}) {
+      const res = await fetch(CLOUD_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-colistrack-pin": userPin
+        },
+        body: JSON.stringify({ action, pin: userPin, ...extra })
+      });
+      const data = await res.json();
+      if (res.status === 401 || data.locked) {
+        document.getElementById("lockScreen").classList.add("active");
+        throw new Error("LOCKED");
+      }
+      return data;
+    }
+
+    async function initCloudSync() {
+      if (!userPin) {
+        document.getElementById("lockScreen").classList.add("active");
+        return;
+      }
+      try {
+        const data = await callCloudVault("get");
+        if (data.ok) {
+          document.getElementById("lockScreen").classList.remove("active");
+          document.getElementById("maskedAccountDisplay").textContent = data.account_masked || "Compte masqué";
+          const manualPackages = deliveries.filter((d) => String(d.id).startsWith("MAN:"));
+          deliveries = [...manualPackages, ...(data.deliveries || [])];
+          saveLocalCache();
+          updateSyncSubtitle(data.synced_at, data.account_masked);
+          renderDeliveries();
+        }
+      } catch (e) {
+        if (e.message !== "LOCKED") {
+          renderDeliveries();
+        }
+      }
+    }
+
+    document.getElementById("pinUnlockForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const pinVal = document.getElementById("pinInput").value.trim();
+      const errEl = document.getElementById("pinErrorMsg");
+      errEl.style.display = "none";
+      userPin = pinVal;
+
+      try {
+        const data = await callCloudVault("get");
+        if (data.ok) {
+          localStorage.setItem(STORAGE_KEY_PIN, userPin);
+          document.getElementById("lockScreen").classList.remove("active");
+          document.getElementById("maskedAccountDisplay").textContent = data.account_masked || "Compte masqué";
+          deliveries = data.deliveries || [];
+          saveLocalCache();
+          updateSyncSubtitle(data.synced_at, data.account_masked);
+          renderDeliveries();
+        }
+      } catch (err) {
+        errEl.textContent = "Code PIN incorrect.";
+        errEl.style.display = "block";
+      }
+    });
+
+    async function triggerCloudScan() {
+      const spinner = document.getElementById("scanSpinner");
+      const label = document.getElementById("scanBtnLabel");
+      spinner.style.display = "inline-block";
+      label.textContent = "Analyse Cloud...";
+
+      try {
+        const data = await callCloudVault("scan");
+        if (!data.ok) {
+          showBanner(data.error || "Erreur lors de l'analyse cloud.", "error");
+          return;
+        }
+        const manualPackages = deliveries.filter((d) => String(d.id).startsWith("MAN:"));
+        deliveries = [...manualPackages, ...(data.deliveries || [])];
+        saveLocalCache();
+        updateSyncSubtitle(data.synced_at, data.account_masked);
+        renderDeliveries();
+        showBanner(`✅ Analyse Cloud terminée (${data.deliveries.length} suivi(s) actif(s)).`, "info");
+      } catch (e) {
+        if (e.message !== "LOCKED") {
+          showBanner("Erreur de connexion au coffre Cloud.", "error");
+        }
+      } finally {
+        spinner.style.display = "none";
+        label.textContent = "🔄 Actualiser mes mails";
+      }
+    }
+
+    document.getElementById("btnScanNow").addEventListener("click", triggerCloudScan);
+
+    document.getElementById("changePinForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const newPin = document.getElementById("newPinInput").value.trim();
+      if (!newPin) return;
+      try {
+        const res = await callCloudVault("save_vault", { new_pin: newPin });
+        if (res.ok) {
+          userPin = newPin;
+          localStorage.setItem(STORAGE_KEY_PIN, newPin);
+          closeModal("settingsModal");
+          showBanner("🔒 Votre nouveau code PIN a bien été enregistré.", "info");
+        }
+      } catch (_) {}
+    });
+
+    document.getElementById("btnLockNow").addEventListener("click", () => {
+      localStorage.removeItem(STORAGE_KEY_PIN);
+      userPin = "";
+      closeModal("settingsModal");
+      document.getElementById("lockScreen").classList.add("active");
+    });
+
+    function formatEta(isoDate, step) {
+      if (step === 5) return "Livré ✓";
+      if (!isoDate) return null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const target = new Date(isoDate + "T00:00:00");
+      const diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
+      if (diffDays === 0) return "🔥 Arrive aujourd'hui";
+      if (diffDays === 1) return "⚡ Arrive demain";
+      return "📅 Prévu le " + target.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+    }
+
+    function toggleBookmark(id) {
+      if (bookmarkedIds.has(id)) bookmarkedIds.delete(id);
+      else bookmarkedIds.add(id);
+      saveLocalCache();
+      renderDeliveries();
+    }
+
+    function deletePackage(id) {
+      deliveries = deliveries.filter((d) => d.id !== id);
+      bookmarkedIds.delete(id);
+      saveLocalCache();
+      renderDeliveries();
+    }
+
+    function renderDeliveries() {
+      const container = document.getElementById("packagesContainer");
+      const inTransit = deliveries.filter((d) => d.step < 5).length;
+      const imminent = deliveries.filter((d) => d.step === 3 || d.step === 4).length;
+      const delivered = deliveries.filter((d) => d.step === 5).length;
+      const bookmarkedCount = deliveries.filter((d) => bookmarkedIds.has(d.id)).length;
+
+      document.getElementById("statInTransit").textContent = inTransit;
+      document.getElementById("statImminent").textContent = imminent;
+      document.getElementById("statBookmarked").textContent = bookmarkedCount;
+      document.getElementById("statDelivered").textContent = delivered;
+
+      document.getElementById("countAll").textContent = deliveries.length;
+      document.getElementById("countActive").textContent = inTransit;
+      document.getElementById("countStar").textContent = bookmarkedCount;
+      document.getElementById("countDelivered").textContent = delivered;
+
+      let filtered = deliveries.filter((pkg) => {
+        if (currentFilter === "active" && pkg.step === 5) return false;
+        if (currentFilter === "delivered" && pkg.step !== 5) return false;
+        if (currentFilter === "bookmarked" && !bookmarkedIds.has(pkg.id)) return false;
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const hay = `${pkg.title} ${pkg.carrier_name} ${pkg.tracking_number || ""} ${pkg.status_label}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      filtered.sort((a, b) => {
+        const aStar = bookmarkedIds.has(a.id) ? 1 : 0;
+        const bStar = bookmarkedIds.has(b.id) ? 1 : 0;
+        if (aStar !== bStar) return bStar - aStar;
+        const aDone = a.step === 5 ? 1 : 0;
+        const bDone = b.step === 5 ? 1 : 0;
+        if (aDone !== bDone) return aDone - bDone;
+        return b.step - a.step;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <h3>Aucun colis dans cette vue 📦</h3>
+            <p style="color:var(--text-muted);margin:10px auto 18px;max-width:460px;">
+              Cliquez sur « 🔄 Actualiser mes mails » pour scanner votre boîte mail directement depuis le Cloud (même Mac éteint).
+            </p>
+            <button class="btn btn-primary" onclick="triggerCloudScan()">🔄 Actualiser mes mails maintenant</button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered
+        .map((pkg, idx) => {
+          const isStar = bookmarkedIds.has(pkg.id);
+          const etaText = formatEta(pkg.estimated_delivery, pkg.step);
+          const step1Class = pkg.step >= 1 ? (pkg.step === 1 ? "current" : "done") : "";
+          const step2Class = pkg.step >= 2 ? (pkg.step === 2 ? "current" : "done") : "";
+          const step3Class = pkg.step >= 3 ? (pkg.step === 3 || pkg.step === 4 ? "current" : "done") : "";
+          const step4Class = pkg.step === 5 ? "done" : "";
+
+          const eventsHtml = (pkg.events || [])
+            .map((ev) => {
+              const d = new Date(ev.date).toLocaleDateString("fr-FR", {
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit"
+              });
+              return `<div class="event-line"><span><strong>${escapeHtml(ev.label)}</strong> — ${escapeHtml(ev.subject)}</span><span style="white-space:nowrap;">${d}</span></div>`;
+            })
+            .join("");
+
+          return `
+            <article class="package-card ${isStar ? "bookmarked" : ""}">
+              <div class="pkg-top">
+                <div class="pkg-identity">
+                  <div class="pkg-badges">
+                    <span class="carrier-badge" style="background:${pkg.carrier_color || "#6366f1"}">
+                      🚚 ${escapeHtml(pkg.carrier_name)}
+                    </span>
+                    ${etaText ? `<span class="eta-badge">${escapeHtml(etaText)}</span>` : ""}
+                    ${pkg.pickup_code ? `<span class="pickup-badge">🔑 Code retrait : ${escapeHtml(pkg.pickup_code)}</span>` : ""}
+                  </div>
+                  <h3 class="pkg-title">${escapeHtml(pkg.title)}</h3>
+                  <div class="pkg-tracking">
+                    ${
+                      pkg.tracking_number
+                        ? `<span>N° de suivi : <strong>${escapeHtml(pkg.tracking_number)}</strong></span>`
+                        : `<span>Suivi détecté par email</span>`
+                    }
+                  </div>
+                </div>
+
+                <div class="pkg-actions">
+                  <button class="icon-btn ${isStar ? "active-star" : ""}" onclick="toggleBookmark('${escapeAttr(pkg.id)}')">
+                    ${isStar ? "⭐" : "☆"}
+                  </button>
+                  <button class="icon-btn" onclick="deletePackage('${escapeAttr(pkg.id)}')">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+
+              <div class="progress-section">
+                <div class="progress-header">
+                  <span class="status-label ${pkg.step === 5 ? "delivered" : ""}">
+                    ${pkg.step === 5 ? "✅" : "📦"} ${escapeHtml(pkg.status_label)}
+                  </span>
+                  <span class="progress-percent">${pkg.percent}%</span>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-fill" style="width: ${pkg.percent}%"></div>
+                </div>
+                <div class="steps-row">
+                  <div class="step-item ${step1Class}"><span class="step-dot"></span> Préparation</div>
+                  <div class="step-item ${step2Class}"><span class="step-dot"></span> Expédié</div>
+                  <div class="step-item ${step3Class}"><span class="step-dot"></span> ${pkg.step === 4 ? "Point Relais" : "En livraison"}</div>
+                  <div class="step-item ${step4Class}"><span class="step-dot"></span> Livré</div>
+                </div>
+              </div>
+
+              <div class="pkg-footer">
+                <span>${escapeHtml(pkg.status_description || "")}</span>
+                <div class="pkg-links">
+                  ${
+                    pkg.tracking_url
+                      ? `<a href="${escapeAttr(pkg.tracking_url)}" target="_blank" rel="noopener" class="link-sm">🔗 Suivre chez ${escapeHtml(pkg.carrier_name)} ↗</a>`
+                      : ""
+                  }
+                  ${
+                    pkg.events && pkg.events.length > 0
+                      ? `<button class="link-sm" onclick="toggleEvents('ev-${idx}')">📩 Historique (${pkg.events.length})</button>`
+                      : ""
+                  }
+                </div>
+              </div>
+
+              <div id="ev-${idx}" class="events-drawer">${eventsHtml}</div>
+            </article>
+          `;
+        })
+        .join("");
+    }
+
+    function toggleEvents(id) {
+      document.getElementById(id)?.classList.toggle("open");
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function escapeAttr(str) {
+      return String(str || "").replace(/'/g, "\\'").replace(/"/g, "&quot;");
+    }
+
+    function openModal(id) { document.getElementById(id)?.classList.add("open"); }
+    function closeModal(id) { document.getElementById(id)?.classList.remove("open"); }
+
+    document.querySelectorAll("[data-close]").forEach((btn) => {
+      btn.addEventListener("click", () => closeModal(btn.getAttribute("data-close")));
+    });
+
+    document.getElementById("btnOpenSettings").addEventListener("click", () => openModal("settingsModal"));
+    document.getElementById("btnBookmarkGuide").addEventListener("click", () => openModal("bookmarkModal"));
+    document.getElementById("btnAddManual").addEventListener("click", () => openModal("manualModal"));
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentFilter = btn.getAttribute("data-filter");
+        renderDeliveries();
+      });
+    });
+
+    document.getElementById("searchInput").addEventListener("input", (e) => {
+      searchQuery = e.target.value.trim();
+      renderDeliveries();
+    });
+
+    document.getElementById("manualForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const title = document.getElementById("manTitle").value.trim();
+      const [carrierName, carrierColor] = document.getElementById("manCarrier").value.split("|");
+      const tracking = document.getElementById("manTracking").value.trim().toUpperCase();
+      const step = parseInt(document.getElementById("manStep").value, 10);
+      const eta = document.getElementById("manEta").value || null;
+      const stepMeta = {
+        1: { percent: 20, label: "Commande préparée", desc: "Colis en préparation." },
+        2: { percent: 50, label: "Expédié / En transit", desc: "Colis en transit." },
+        3: { percent: 78, label: "En cours de livraison", desc: "Livraison imminente." },
+        4: { percent: 90, label: "Disponible en Point Relais", desc: "Prêt à retirer." },
+        5: { percent: 100, label: "Livré", desc: "Colis livré." }
+      }[step];
+
+      deliveries.unshift({
+        id: "MAN:" + Date.now(),
+        title,
+        carrier_name: carrierName,
+        carrier_color: carrierColor,
+        tracking_number: tracking || null,
+        tracking_url: null,
+        step,
+        percent: stepMeta.percent,
+        status_label: stepMeta.label,
+        status_description: stepMeta.desc,
+        estimated_delivery: eta,
+        pickup_code: null,
+        last_update: new Date().toISOString(),
+        events: [{ date: new Date().toISOString(), subject: "Ajouté manuellement", step, label: stepMeta.label }]
+      });
+      saveLocalCache();
+      renderDeliveries();
+      closeModal("manualModal");
+      e.target.reset();
+    });
+
+    loadLocalCache();
+    renderDeliveries();
+    initCloudSync();
+  </script>
+</body>
+</html>
