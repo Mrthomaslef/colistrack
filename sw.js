@@ -1,4 +1,4 @@
-const CACHE_NAME = "colistrack-v6";
+const CACHE_NAME = "colistrack-v7";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
