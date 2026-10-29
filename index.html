@@ -859,7 +859,7 @@
 
   <script>
     const CLOUD_API_URL = "https://bfpyeoeggxhaiyvvltbm.supabase.co/functions/v1/colistrack";
-    const STORAGE_KEY_DELIVERIES = "colistrack_deliveries_v2";
+    const STORAGE_KEY_DELIVERIES = "colistrack_deliveries_v3";
     const STORAGE_KEY_BOOKMARKS = "colistrack_bookmarks_v2";
     const STORAGE_KEY_PIN = "colistrack_pin_v2";
 
@@ -883,86 +883,168 @@
         .replace(/[^a-z0-9]/g, "");
     }
 
+    function isMerchantOrderNumber(trk) {
+      if (!trk) return false;
+      const s = String(trk).trim().toUpperCase();
+      if (s.startsWith("FR2026")) return true;
+      if (/^[0-9]{6,10}$/.test(s)) return true;
+      return false;
+    }
+
     function isGenericTitle(title) {
-      const t = String(title || "").toLowerCase();
+      const t = String(title || "").toLowerCase().replace(/\u00a0/g, " ").trim();
       return (
-        t.includes("votre colis arrive") ||
-        t.includes("votre colis va quitter") ||
-        t.includes("votre\u00a0colis\u00a0va quitter") ||
+        t.includes("votre colis") ||
+        t.includes("votre commande") ||
+        t.includes("votre envoi") ||
+        t.includes("commande back market") ||
+        t.includes("commande confirm") ||
+        t.includes("confirmation de la commande") ||
+        t.includes("mise à jour des informations de la commande") ||
         t.includes("besoin d’un code") ||
         t.includes("besoin d'un code") ||
         t.includes("arrivé chez le transporteur") ||
         t.includes("shipment is on its way") ||
         t.includes("est en route") ||
+        t.includes("prête à être expédiée") ||
+        t.includes("prete a etre expediee") ||
+        (t.includes("en cours de livraison") && !t.includes(":")) ||
         t.includes("colis ths-wj") ||
-        t.includes("commande gffr")
+        t.includes("commande gffr") ||
+        t.includes("colis colissimo") ||
+        t.includes("commande zalando") ||
+        t.includes("pièces détachées fiido")
       );
     }
 
     function deduplicateDeliveries(list) {
       const sorted = [...(list || [])].sort((a, b) => {
-        const aTrk = a.tracking_number ? 1 : 0;
-        const bTrk = b.tracking_number ? 1 : 0;
-        if (aTrk !== bTrk) return bTrk - aTrk;
+        const aRealTrk = a.tracking_number && !isMerchantOrderNumber(a.tracking_number) ? 1 : 0;
+        const bRealTrk = b.tracking_number && !isMerchantOrderNumber(b.tracking_number) ? 1 : 0;
+        if (aRealTrk !== bRealTrk) return bRealTrk - aRealTrk;
         const aSpec = !isGenericTitle(a.title) ? 1 : 0;
         const bSpec = !isGenericTitle(b.title) ? 1 : 0;
         if (aSpec !== bSpec) return bSpec - aSpec;
+        const aAnyTrk = a.tracking_number ? 1 : 0;
+        const bAnyTrk = b.tracking_number ? 1 : 0;
+        if (aAnyTrk !== bAnyTrk) return bAnyTrk - aAnyTrk;
         return String(b.title || "").length - String(a.title || "").length;
       });
 
       const result = [];
       for (const item of sorted) {
         const itemNormTitle = normStr(item.title);
-        const itemEventNorms = new Set(
-          [item.title, ...(item.events || []).map((e) => e.subject)].map(normStr).filter((x) => x.length >= 8)
-        );
+        const itemIsGeneric = isGenericTitle(item.title);
+        const itemRealTrk =
+          item.tracking_number && !isMerchantOrderNumber(item.tracking_number)
+            ? String(item.tracking_number).toUpperCase()
+            : null;
 
         let matched = null;
         for (const ex of result) {
-          if (ex.id === item.id) { matched = ex; break; }
-          if (ex.tracking_number && item.tracking_number && ex.tracking_number === item.tracking_number) {
-            matched = ex; break;
+          const exRealTrk =
+            ex.tracking_number && !isMerchantOrderNumber(ex.tracking_number)
+              ? String(ex.tracking_number).toUpperCase()
+              : null;
+          const bothHaveDifferentRealTracking = Boolean(exRealTrk && itemRealTrk && exRealTrk !== itemRealTrk);
+
+          if (ex.id === item.id && !isMerchantOrderNumber(ex.tracking_number)) {
+            matched = ex;
+            break;
           }
-          const exEventNorms = [ex.title, ...(ex.events || []).map((e) => e.subject)].map(normStr).filter((x) => x.length >= 8);
-          if (exEventNorms.some((en) => itemEventNorms.has(en))) {
-            matched = ex; break;
+          if (exRealTrk && itemRealTrk && exRealTrk === itemRealTrk) {
+            matched = ex;
+            break;
           }
+          if (bothHaveDifferentRealTracking) continue;
+
+          if (
+            ex.tracking_number &&
+            item.tracking_number &&
+            ex.tracking_number === item.tracking_number &&
+            (itemIsGeneric || isGenericTitle(ex.title) || normStr(ex.title) === itemNormTitle)
+          ) {
+            matched = ex;
+            break;
+          }
+
           const exNormTitle = normStr(ex.title);
-          if (itemNormTitle.length >= 12 && exNormTitle.length >= 12) {
+          const exIsGeneric = isGenericTitle(ex.title);
+
+          if (!itemIsGeneric && !exIsGeneric && itemNormTitle.length >= 12 && exNormTitle.length >= 12) {
+            if (itemNormTitle === exNormTitle) {
+              matched = ex;
+              break;
+            }
             const pLen = Math.min(15, itemNormTitle.length, exNormTitle.length);
             if (itemNormTitle.slice(0, pLen) === exNormTitle.slice(0, pLen)) {
-              matched = ex; break;
+              matched = ex;
+              break;
             }
+          }
+
+          const exIsBm =
+            ex.carrier_id === "backmarket" || String(ex.carrier_name || "").toLowerCase().includes("back market");
+          const itemIsBm =
+            item.carrier_id === "backmarket" || String(item.carrier_name || "").toLowerCase().includes("back market");
+          if (exIsBm && itemIsBm && (exIsGeneric || itemIsGeneric || !exRealTrk || !itemRealTrk)) {
+            matched = ex;
+            break;
+          }
+
+          const exEventNorms = [ex.title, ...(ex.events || []).map((e) => e.subject)]
+            .filter((s) => !isGenericTitle(s) || String(s).includes("FR202626070"))
+            .map(normStr)
+            .filter((x) => x.length >= 10);
+          const itemEventNorms = new Set(
+            [item.title, ...(item.events || []).map((e) => e.subject)]
+              .filter((s) => !isGenericTitle(s) || String(s).includes("FR202626070"))
+              .map(normStr)
+              .filter((x) => x.length >= 10)
+          );
+          if (ex.step < 5 && item.step < 5 && exEventNorms.some((en) => itemEventNorms.has(en))) {
+            matched = ex;
+            break;
           }
         }
 
         if (!matched) {
+          if (!item.tracking_number && itemIsGeneric && !String(item.id || "").startsWith("MAN:")) continue;
           result.push({ ...item, events: [...(item.events || [])] });
         } else {
-          if (!matched.tracking_number && item.tracking_number) {
+          if ((!matched.tracking_number || isMerchantOrderNumber(matched.tracking_number)) && itemRealTrk) {
+            matched.tracking_number = itemRealTrk;
+            matched.id = "TRK:" + itemRealTrk;
+            if (item.tracking_url) matched.tracking_url = item.tracking_url;
+          } else if (!matched.tracking_number && item.tracking_number) {
             matched.tracking_number = item.tracking_number;
             matched.id = "TRK:" + item.tracking_number;
           }
           if (!matched.tracking_url && item.tracking_url) matched.tracking_url = item.tracking_url;
-          if ((isGenericTitle(matched.title) && !isGenericTitle(item.title)) || String(item.title || "").length > String(matched.title || "").length + 6) {
-            if (!isGenericTitle(item.title)) matched.title = item.title;
+          if (String(item.carrier_name || "").includes("/") && !String(matched.carrier_name || "").includes("/")) {
+            matched.carrier_name = item.carrier_name;
+          }
+          if ((isGenericTitle(matched.title) && !itemIsGeneric) || (!itemIsGeneric && String(item.title || "").length > String(matched.title || "").length + 6)) {
+            matched.title = item.title;
           }
           if ((item.step || 1) > (matched.step || 1)) {
             matched.step = item.step;
             matched.percent = item.percent;
             matched.status_label = item.status_label;
             matched.status_description = item.status_description;
+            if (item.estimated_delivery) matched.estimated_delivery = item.estimated_delivery;
+          } else if (!matched.estimated_delivery && item.estimated_delivery) {
+            matched.estimated_delivery = item.estimated_delivery;
           }
-          if (!matched.estimated_delivery && item.estimated_delivery) matched.estimated_delivery = item.estimated_delivery;
           if (!matched.pickup_code && item.pickup_code) matched.pickup_code = item.pickup_code;
-          const seenSubj = new Set((matched.events || []).map((e) => normStr(e.subject)));
-          for (const ev of item.events || []) {
-            const ns = normStr(ev.subject);
-            if (ns && !seenSubj.has(ns)) {
-              seenSubj.add(ns);
-              matched.events.push(ev);
-            }
+          const byKey = new Map();
+          for (const ev of [...(matched.events || []), ...(item.events || [])]) {
+            const key = `${normStr(ev.subject)}:${String(ev.date || "").slice(0, 10)}`;
+            if (!normStr(ev.subject)) continue;
+            const prev = byKey.get(key);
+            if (!prev || (ev.step || 1) > (prev.step || 1)) byKey.set(key, ev);
           }
+          matched.events = [...byKey.values()].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
         }
       }
       return result;
