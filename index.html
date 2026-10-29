@@ -887,10 +887,15 @@
       const t = String(title || "").toLowerCase();
       return (
         t.includes("votre colis arrive") ||
+        t.includes("votre colis va quitter") ||
+        t.includes("votre\u00a0colis\u00a0va quitter") ||
         t.includes("besoin d’un code") ||
         t.includes("besoin d'un code") ||
         t.includes("arrivé chez le transporteur") ||
-        t.includes("shipment is on its way")
+        t.includes("shipment is on its way") ||
+        t.includes("est en route") ||
+        t.includes("colis ths-wj") ||
+        t.includes("commande gffr")
       );
     }
 
