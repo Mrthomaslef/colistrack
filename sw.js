@@ -1,4 +1,4 @@
-const CACHE_NAME = "colistrack-v8";
+const CACHE_NAME = "colistrack-v10";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -20,7 +20,12 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET" || event.request.url.includes("/api/") || event.request.url.includes("supabase.co")) {
+  if (
+    event.request.method !== "GET" ||
+    event.request.url.includes("/api/") ||
+    event.request.url.includes("supabase.co") ||
+    event.request.url.includes("vault.enc.json")
+  ) {
     return;
   }
   event.respondWith(
