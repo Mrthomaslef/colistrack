@@ -759,13 +759,13 @@
 
   <!-- Barre d'onglets fixe en bas d'écran (ergonomie mobile au pouce) -->
   <nav class="bottom-nav">
-    <button class="nav-tab active" data-filter="all">
-      <span class="nav-ico">📦</span>
-      <span>Tous (<span id="countAll">0</span>)</span>
-    </button>
-    <button class="nav-tab" data-filter="active">
+    <button class="nav-tab active" data-filter="active">
       <span class="nav-ico">🚚</span>
       <span>En cours (<span id="countActive">0</span>)</span>
+    </button>
+    <button class="nav-tab" data-filter="all">
+      <span class="nav-ico">📦</span>
+      <span>Tous (<span id="countAll">0</span>)</span>
     </button>
     <button class="nav-tab" data-filter="bookmarked">
       <span class="nav-ico">⭐</span>
@@ -859,13 +859,13 @@
 
   <script>
     const CLOUD_API_URL = "https://bfpyeoeggxhaiyvvltbm.supabase.co/functions/v1/colistrack";
-    const STORAGE_KEY_DELIVERIES = "colistrack_deliveries_v3";
+    const STORAGE_KEY_DELIVERIES = "colistrack_deliveries_v4";
     const STORAGE_KEY_BOOKMARKS = "colistrack_bookmarks_v2";
     const STORAGE_KEY_PIN = "colistrack_pin_v2";
 
     let deliveries = [];
     let bookmarkedIds = new Set();
-    let currentFilter = "all";
+    let currentFilter = "active";
     let searchQuery = "";
     let userPin = localStorage.getItem(STORAGE_KEY_PIN) || "";
 
@@ -897,6 +897,9 @@
         t.includes("votre colis") ||
         t.includes("votre commande") ||
         t.includes("votre envoi") ||
+        t.includes("vos accessoires de") ||
+        t.includes("expédiés séparément") ||
+        t.includes("expedies separement") ||
         t.includes("commande back market") ||
         t.includes("commande confirm") ||
         t.includes("confirmation de la commande") ||
@@ -1087,7 +1090,119 @@
       } catch (_) {}
     }
 
+    function b64ToBytes(b64) {
+      const bin = atob(b64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return arr;
+    }
+
+    async function decryptStaticVault(encObj, pin) {
+      const salt = b64ToBytes(encObj.salt);
+      const nonce = b64ToBytes(encObj.nonce);
+      const ct = b64ToBytes(encObj.ct);
+      const expectedTag = b64ToBytes(encObj.tag);
+
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(String(pin || "")),
+        { name: "PBKDF2" },
+        false,
+        ["deriveBits"]
+      );
+      const dkBits = await crypto.subtle.deriveBits(
+        { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+        keyMaterial,
+        512
+      );
+      const dk = new Uint8Array(dkBits);
+      const encKey = dk.slice(0, 32);
+      const macKey = dk.slice(32, 64);
+
+      const hmacCryptoKey = await crypto.subtle.importKey(
+        "raw",
+        macKey,
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+      const macInput = new Uint8Array(salt.length + nonce.length + ct.length);
+      macInput.set(salt, 0);
+      macInput.set(nonce, salt.length);
+      macInput.set(ct, salt.length + nonce.length);
+
+      const actualTag = new Uint8Array(await crypto.subtle.sign("HMAC", hmacCryptoKey, macInput));
+      if (actualTag.length !== expectedTag.length) throw new Error("LOCKED");
+      let diff = 0;
+      for (let i = 0; i < actualTag.length; i++) diff |= actualTag[i] ^ expectedTag[i];
+      if (diff !== 0) throw new Error("LOCKED");
+
+      const plain = new Uint8Array(ct.length);
+      const blockCount = Math.ceil(ct.length / 32);
+      for (let counter = 0; counter < blockCount; counter++) {
+        const blkInput = new Uint8Array(32 + 16 + 4);
+        blkInput.set(encKey, 0);
+        blkInput.set(nonce, 32);
+        blkInput[48] = (counter >>> 24) & 0xff;
+        blkInput[49] = (counter >>> 16) & 0xff;
+        blkInput[50] = (counter >>> 8) & 0xff;
+        blkInput[51] = counter & 0xff;
+        const blkHash = new Uint8Array(await crypto.subtle.digest("SHA-256", blkInput));
+        const start = counter * 32;
+        const end = Math.min(start + 32, ct.length);
+        for (let i = start; i < end; i++) {
+          plain[i] = ct[i] ^ blkHash[i - start];
+        }
+      }
+      return JSON.parse(new TextDecoder("utf-8").decode(plain));
+    }
+
+    async function fetchEncryptedStaticVault() {
+      const res = await fetch(`./vault.enc.json?t=${Date.now()}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("NO_STATIC_VAULT");
+      const encObj = await res.json();
+      return await decryptStaticVault(encObj, userPin);
+    }
+
     async function callCloudVault(action, extra = {}) {
+      // 1. Si le serveur local / réseau est accessible (/api/vault), l'utiliser en priorité (scan IMAP direct)
+      if (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.port === "8765") {
+        try {
+          const localRes = await fetch("/api/vault", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-colistrack-pin": userPin
+            },
+            body: JSON.stringify({ action, pin: userPin, ...extra })
+          });
+          const localData = await localRes.json();
+          if (localRes.status === 401 || localData.locked) {
+            document.getElementById("lockScreen").classList.add("active");
+            throw new Error("LOCKED");
+          }
+          if (localRes.ok && localData.ok) return localData;
+        } catch (err) {
+          if (err.message === "LOCKED") throw err;
+        }
+      }
+
+      // 2. Lecture rapide et fiable depuis le coffre chiffré GitHub Pages (vault.enc.json mis à jour toutes les heures)
+      if (action === "get" || action === "scan") {
+        try {
+          const staticData = await fetchEncryptedStaticVault();
+          if (staticData && staticData.ok) {
+            return staticData;
+          }
+        } catch (err) {
+          if (err.message === "LOCKED") {
+            document.getElementById("lockScreen").classList.add("active");
+            throw err;
+          }
+        }
+      }
+
+      // 3. Fallback Cloud Supabase si disponible
       const res = await fetch(CLOUD_API_URL, {
         method: "POST",
         headers: {
@@ -1158,7 +1273,7 @@
       try {
         const data = await callCloudVault("scan");
         if (!data.ok) {
-          showBanner(data.error || "Erreur lors de l'analyse cloud.", "error");
+          showBanner(data.error || "Erreur lors de l'analyse.", "error");
           return;
         }
         const manualPackages = deliveries.filter((d) => String(d.id).startsWith("MAN:"));
@@ -1166,10 +1281,11 @@
         saveLocalCache();
         updateSyncSubtitle(data.synced_at, data.account_masked);
         renderDeliveries();
-        showBanner(`✅ ${data.deliveries.length} suivi(s) à jour.`, "info");
+        const activeCount = deliveries.filter((d) => d.step < 5).length;
+        showBanner(`✅ Synchronisé (${activeCount} colis en cours, ${deliveries.length} au total).`, "info");
       } catch (e) {
         if (e.message !== "LOCKED") {
-          showBanner("Erreur de connexion au coffre Cloud.", "error");
+          showBanner("Erreur lors de la synchronisation.", "error");
         }
       } finally {
         spinner.style.display = "none";
@@ -1447,126 +1563,23 @@
     loadLocalCache();
     renderDeliveries();
     initCloudSync();
-  </script>
 
-<!-- Global Mobile Pull-to-Refresh (Drag vers le bas) -->
-<style>
-  html, body { overscroll-behavior-y: contain; }
-  #global-ptr-bar {
-    position: fixed;
-    top: env(safe-area-inset-top, 0px);
-    left: 0;
-    right: 0;
-    height: 0px;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 99999;
-    pointer-events: none;
-    opacity: 0;
-    transition: height 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s ease;
-  }
-  #global-ptr-bar.ptr-dragging { transition: none; }
-  #global-ptr-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: #F8FAFC;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
-  @keyframes globalPtrSpin { to { transform: rotate(360deg); } }
-  .global-ptr-spin { animation: globalPtrSpin 0.8s linear infinite; }
-</style>
-<div id="global-ptr-bar">
-  <div id="global-ptr-pill">
-    <svg id="global-ptr-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.15s ease;">
-      <path d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
-    </svg>
-    <span id="global-ptr-text">Tirer pour actualiser</span>
-  </div>
-</div>
-<script>
-(function() {
-  if (window.__GLOBAL_PTR_INIT__) return;
-  window.__GLOBAL_PTR_INIT__ = true;
-  function setupPTR() {
-    var bar = document.getElementById("global-ptr-bar");
-    var icon = document.getElementById("global-ptr-icon");
-    var text = document.getElementById("global-ptr-text");
-    if (!bar || !icon || !text) return;
-    var THRESHOLD = 66, MAX_PULL = 110;
-    var startY = 0, pull = 0, pulling = false, refreshing = false;
-    function isAtTop() {
-      return (window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0) <= 2;
-    }
-    function onStart(y) {
-      if (refreshing || !isAtTop()) return;
-      startY = y; pull = 0; pulling = true;
-    }
-    function onMove(y, ev) {
-      if (!pulling || refreshing) return;
-      var delta = y - startY;
-      if (delta <= 0 || !isAtTop()) {
-        if (pull > 0) { bar.style.height = "0px"; bar.style.opacity = "0"; pull = 0; }
-        return;
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && userPin) {
+        initCloudSync();
       }
-      pull = Math.min(MAX_PULL, Math.pow(delta, 0.82) * 1.55);
-      if (pull > 8 && ev && ev.cancelable) ev.preventDefault();
-      bar.classList.add("ptr-dragging");
-      bar.style.height = pull + "px";
-      bar.style.opacity = String(Math.min(1, pull / (THRESHOLD * 0.85)));
-      if (pull >= THRESHOLD) {
-        icon.style.transform = "rotate(180deg)";
-        text.textContent = "Relâcher pour actualiser";
-      } else {
-        icon.style.transform = "rotate(0deg)";
-        text.textContent = "Tirer pour actualiser";
-      }
-    }
-    function onEnd() {
-      if (!pulling || refreshing) return;
-      pulling = false;
-      bar.classList.remove("ptr-dragging");
-      if (pull >= THRESHOLD) {
-        refreshing = true;
-        bar.style.height = "54px";
-        bar.style.opacity = "1";
-        icon.style.transform = "rotate(0deg)";
-        icon.classList.add("global-ptr-spin");
-        icon.innerHTML = "<path d=\"M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15\"/>";
-        text.textContent = "Actualisation...";
-        if (navigator.vibrate) navigator.vibrate(12);
-        setTimeout(function() { window.location.reload(); }, 350);
-      } else {
-        bar.style.height = "0px";
-        bar.style.opacity = "0";
-      }
-      pull = 0;
-    }
-    window.addEventListener("touchstart", function(e) { if (e.touches.length === 1) onStart(e.touches[0].clientY); }, { passive: true });
-    window.addEventListener("touchmove", function(e) { if (e.touches.length === 1) onMove(e.touches[0].clientY, e); }, { passive: false });
-    window.addEventListener("touchend", onEnd, { passive: true });
-    window.addEventListener("touchcancel", onEnd, { passive: true });
-    window.addEventListener("mousedown", function(e) {
-      if (e.button === 0 && !["INPUT", "BUTTON", "A", "SELECT", "TEXTAREA"].includes((e.target && e.target.tagName) || "")) onStart(e.clientY);
     });
-    window.addEventListener("mousemove", function(e) { if (pulling) onMove(e.clientY, null); });
-    window.addEventListener("mouseup", onEnd);
-  }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setupPTR);
-  else setupPTR();
-})();
-</script>
-
+    window.addEventListener("pageshow", () => {
+      if (userPin) initCloudSync();
+    });
+    window.addEventListener("focus", () => {
+      if (userPin) initCloudSync();
+    });
+    setInterval(() => {
+      if (document.visibilityState === "visible" && userPin) {
+        initCloudSync();
+      }
+    }, 3 * 60 * 1000);
+  </script>
 </body>
 </html>
