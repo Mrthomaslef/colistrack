@@ -478,6 +478,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
       gap: 8px;
       margin-top: 10px;
       padding-top: 8px;
@@ -494,6 +495,37 @@
       border: none;
       font-size: 0.76rem;
       padding: 2px 0;
+    }
+
+    .btn-mark-delivered {
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      color: #34d399;
+      border-radius: 9px;
+      padding: 5px 10px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-mark-delivered:active {
+      transform: scale(0.96);
+      background: rgba(16, 185, 129, 0.28);
+    }
+
+    .btn-undo-delivered {
+      background: rgba(148, 163, 184, 0.12);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      color: var(--text-muted);
+      border-radius: 9px;
+      padding: 4px 9px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
     }
 
     .events-drawer {
@@ -861,10 +893,12 @@
     const CLOUD_API_URL = "https://bfpyeoeggxhaiyvvltbm.supabase.co/functions/v1/colistrack";
     const STORAGE_KEY_DELIVERIES = "colistrack_deliveries_v4";
     const STORAGE_KEY_BOOKMARKS = "colistrack_bookmarks_v2";
+    const STORAGE_KEY_MANUAL_DELIVERED = "colistrack_manual_delivered_v1";
     const STORAGE_KEY_PIN = "colistrack_pin_v2";
 
     let deliveries = [];
     let bookmarkedIds = new Set();
+    let manuallyDeliveredIds = new Set(["TRK:6C16199862824", "6C16199862824"]);
     let currentFilter = "active";
     let searchQuery = "";
     let userPin = localStorage.getItem(STORAGE_KEY_PIN) || "";
@@ -918,6 +952,29 @@
         t.includes("commande zalando") ||
         t.includes("pièces détachées fiido")
       );
+    }
+
+    function isPackageManuallyDelivered(pkg) {
+      if (!pkg) return false;
+      if (pkg.manually_delivered) return true;
+      const did = String(pkg.id || "");
+      const trk = String(pkg.tracking_number || "");
+      return (
+        (did && manuallyDeliveredIds.has(did)) ||
+        (trk && manuallyDeliveredIds.has(trk)) ||
+        (trk && manuallyDeliveredIds.has(`TRK:${trk}`))
+      );
+    }
+
+    function applyManualDeliveredState(pkg) {
+      if (isPackageManuallyDelivered(pkg)) {
+        pkg.step = 5;
+        pkg.percent = 100;
+        pkg.status_label = "Livré";
+        pkg.status_description = "Votre colis a été livré.";
+        pkg.manually_delivered = true;
+      }
+      return pkg;
     }
 
     function deduplicateDeliveries(list) {
@@ -1013,7 +1070,7 @@
 
         if (!matched) {
           if (!item.tracking_number && itemIsGeneric && !String(item.id || "").startsWith("MAN:")) continue;
-          result.push({ ...item, events: [...(item.events || [])] });
+          result.push(applyManualDeliveredState({ ...item, events: [...(item.events || [])] }));
         } else {
           if ((!matched.tracking_number || isMerchantOrderNumber(matched.tracking_number)) && itemRealTrk) {
             matched.tracking_number = itemRealTrk;
@@ -1048,6 +1105,7 @@
             if (!prev || (ev.step || 1) > (prev.step || 1)) byKey.set(key, ev);
           }
           matched.events = [...byKey.values()].sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+          applyManualDeliveredState(matched);
         }
       }
       return result;
@@ -1055,6 +1113,10 @@
 
     function loadLocalCache() {
       try {
+        const rawManDel = localStorage.getItem(STORAGE_KEY_MANUAL_DELIVERED);
+        if (rawManDel) {
+          for (const id of JSON.parse(rawManDel)) manuallyDeliveredIds.add(id);
+        }
         const raw = localStorage.getItem(STORAGE_KEY_DELIVERIES);
         if (raw) deliveries = deduplicateDeliveries(JSON.parse(raw));
         const rawBm = localStorage.getItem(STORAGE_KEY_BOOKMARKS);
@@ -1066,6 +1128,7 @@
       deliveries = deduplicateDeliveries(deliveries);
       localStorage.setItem(STORAGE_KEY_DELIVERIES, JSON.stringify(deliveries));
       localStorage.setItem(STORAGE_KEY_BOOKMARKS, JSON.stringify([...bookmarkedIds]));
+      localStorage.setItem(STORAGE_KEY_MANUAL_DELIVERED, JSON.stringify([...manuallyDeliveredIds]));
     }
 
     function showBanner(message, type = "info") {
@@ -1219,6 +1282,12 @@
       return data;
     }
 
+    function mergeServerManuallyDelivered(data) {
+      if (Array.isArray(data.manually_delivered_ids)) {
+        for (const id of data.manually_delivered_ids) manuallyDeliveredIds.add(id);
+      }
+    }
+
     async function initCloudSync() {
       if (!userPin) {
         document.getElementById("lockScreen").classList.add("active");
@@ -1229,6 +1298,7 @@
         if (data.ok) {
           document.getElementById("lockScreen").classList.remove("active");
           document.getElementById("maskedAccountDisplay").textContent = data.account_masked || "Compte masqué";
+          mergeServerManuallyDelivered(data);
           const manualPackages = deliveries.filter((d) => String(d.id).startsWith("MAN:"));
           deliveries = [...manualPackages, ...(data.deliveries || [])];
           saveLocalCache();
@@ -1253,6 +1323,7 @@
           localStorage.setItem(STORAGE_KEY_PIN, userPin);
           document.getElementById("lockScreen").classList.remove("active");
           document.getElementById("maskedAccountDisplay").textContent = data.account_masked || "Compte masqué";
+          mergeServerManuallyDelivered(data);
           deliveries = data.deliveries || [];
           saveLocalCache();
           updateSyncSubtitle(data.synced_at, data.account_masked);
@@ -1276,6 +1347,7 @@
           showBanner(data.error || "Erreur lors de l'analyse.", "error");
           return;
         }
+        mergeServerManuallyDelivered(data);
         const manualPackages = deliveries.filter((d) => String(d.id).startsWith("MAN:"));
         deliveries = [...manualPackages, ...(data.deliveries || [])];
         saveLocalCache();
@@ -1334,6 +1406,59 @@
       else bookmarkedIds.add(id);
       saveLocalCache();
       renderDeliveries();
+    }
+
+    async function markAsDelivered(id, trackingNumber = "", isDelivered = true) {
+      const trk = String(trackingNumber || "").trim();
+      if (isDelivered) {
+        if (id) manuallyDeliveredIds.add(id);
+        if (trk) {
+          manuallyDeliveredIds.add(trk);
+          manuallyDeliveredIds.add(`TRK:${trk}`);
+        }
+      } else {
+        manuallyDeliveredIds.delete(id);
+        if (trk) {
+          manuallyDeliveredIds.delete(trk);
+          manuallyDeliveredIds.delete(`TRK:${trk}`);
+        }
+      }
+
+      for (const pkg of deliveries) {
+        if (pkg.id === id || (trk && pkg.tracking_number === trk)) {
+          if (isDelivered) {
+            pkg.step = 5;
+            pkg.percent = 100;
+            pkg.status_label = "Livré";
+            pkg.status_description = "Votre colis a été livré.";
+            pkg.manually_delivered = true;
+          } else {
+            pkg.manually_delivered = false;
+            pkg.step = 3;
+            pkg.percent = 78;
+            pkg.status_label = "En cours de livraison";
+          }
+        }
+      }
+
+      saveLocalCache();
+      renderDeliveries();
+      showBanner(
+        isDelivered
+          ? "✅ Colis marqué comme livré et synchronisé !"
+          : "↩️ Colis remis dans l'onglet « En cours ».",
+        "info"
+      );
+
+      try {
+        await callCloudVault("mark_delivered", {
+          package_id: id,
+          tracking_number: trk,
+          delivered: isDelivered,
+          manually_delivered_ids: [...manuallyDeliveredIds],
+          last_deliveries: deliveries
+        });
+      } catch (_) {}
     }
 
     function deletePackage(id) {
@@ -1463,16 +1588,27 @@
               </div>
 
               <div class="pkg-footer">
-                ${
-                  pkg.tracking_url
-                    ? `<a href="${escapeAttr(pkg.tracking_url)}" target="_blank" rel="noopener" class="link-sm">🔗 Suivre le colis ↗</a>`
-                    : `<span></span>`
-                }
-                ${
-                  pkg.events && pkg.events.length > 0
-                    ? `<button class="link-sm" onclick="toggleEvents('ev-${idx}')">📩 Mails (${pkg.events.length})</button>`
-                    : ""
-                }
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  ${
+                    pkg.tracking_url
+                      ? `<a href="${escapeAttr(pkg.tracking_url)}" target="_blank" rel="noopener" class="link-sm">🔗 Suivre le colis ↗</a>`
+                      : ``
+                  }
+                  ${
+                    pkg.events && pkg.events.length > 0
+                      ? `<button class="link-sm" onclick="toggleEvents('ev-${idx}')">📩 Mails (${pkg.events.length})</button>`
+                      : ""
+                  }
+                </div>
+                <div>
+                  ${
+                    pkg.step < 5
+                      ? `<button class="btn-mark-delivered" onclick="markAsDelivered('${escapeAttr(pkg.id)}', '${escapeAttr(pkg.tracking_number || "")}', true)">✅ Marquer livré</button>`
+                      : isPackageManuallyDelivered(pkg)
+                      ? `<button class="btn-undo-delivered" onclick="markAsDelivered('${escapeAttr(pkg.id)}', '${escapeAttr(pkg.tracking_number || "")}', false)">↩️ Remettre en cours</button>`
+                      : ""
+                  }
+                </div>
               </div>
 
               <div id="ev-${idx}" class="events-drawer">${eventsHtml}</div>
